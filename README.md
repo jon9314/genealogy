@@ -15,7 +15,7 @@ A fully local-first genealogy workstation for importing scanned descendancy PDFs
 ## Repository structure
 
 ```
-genealogy-app/
+genealogy/
   backend/           # FastAPI + SQLModel service
     app/
       api/           # REST endpoints
@@ -32,6 +32,7 @@ genealogy-app/
       lib/           # API client + type defs
     Dockerfile
     package.json
+  data/              # Persistent storage for uploads, OCR, and DB
   samples/           # Example descendancy chart PDF
   docker-compose.yml
   Makefile
@@ -50,7 +51,7 @@ genealogy-app/
 ### Backend setup
 
 ```bash
-cd genealogy-app/backend
+cd backend
 python -m venv .venv
 source .venv/bin/activate  # on Windows: .venv\Scripts\activate
 pip install -e .[dev]
@@ -62,7 +63,7 @@ The API lives at `http://localhost:8000/api` and stores its SQLite database at `
 ### Frontend setup
 
 ```bash
-cd genealogy-app/frontend
+cd frontend
 npm install
 npm run dev -- --host 0.0.0.0 --port 5173
 ```
@@ -99,7 +100,7 @@ The backend container mounts `./data` to persist database, OCR PDFs, and project
 Backend tests focus on the parser heuristics and GEDCOM output:
 
 ```bash
-cd genealogy-app/backend
+cd backend
 pytest
 ```
 
