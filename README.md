@@ -86,14 +86,24 @@ This uses `npx concurrently` to start `uvicorn` and `npm run dev` side-by-side (
 # build images
 make build
 
-# start services (backend on :8000, frontend on :5173)
+# start services (backend on :8000, frontend on :8080)
 make up
 
 # stop containers
 make down
 ```
 
-The backend container mounts `./data` to persist database, OCR PDFs, and project archives.
+The backend container mounts `./data` to persist database, OCR PDFs, and project archives. The frontend image uses Nginx to serve the Vite production bundle, reverse proxy `/api` calls to the backend service, and accepts uploads up to 1 GB.
+
+### Deploying on a Linux server
+
+1. Install Docker Engine and Docker Compose plugin (on Ubuntu: `sudo apt install docker.io docker-compose-plugin`).
+2. Clone this repository onto the server and change into the project directory.
+3. Create a writable data directory if it does not exist: `mkdir -p data`.
+4. Build and start the stack in the background: `docker compose up -d --build`.
+5. From any machine on the LAN, open `http://<server-ip>:8080` to use the app. The API remains available at `http://<server-ip>:8000/api` if you need it directly.
+
+Modify `docker-compose.yml` if you prefer to expose the frontend on port 80 (change the `8080:80` mapping) or to disable the direct backend port mapping.
 
 ## Running tests
 
@@ -110,10 +120,10 @@ pytest
 
 ## Key environment variables
 
-- `GENEALOGY_DATABASE_PATH` – override the SQLite path (defaults to `./data/app.db`)
-- `GENEALOGY_OCRMYPDF_EXECUTABLE` – provide an alternate OCRmyPDF binary
-- `GENEALOGY_OCRMYPDF_LANGUAGE` – change the Tesseract language pack (default `eng`)
-- `GENEALOGY_OCRMYPDF_REMOVE_BACKGROUND` – set to `true` to enable background removal flag
+- `GENEALOGY_DATABASE_PATH` - override the SQLite path (defaults to `./data/app.db`)
+- `GENEALOGY_OCRMYPDF_EXECUTABLE` - provide an alternate OCRmyPDF binary
+- `GENEALOGY_OCRMYPDF_LANGUAGE` - change the Tesseract language pack (default `eng`)
+- `GENEALOGY_OCRMYPDF_REMOVE_BACKGROUND` - set to `true` to enable background removal flag
 
 ## API overview
 
@@ -132,4 +142,4 @@ pytest
 | `POST /api/project/save` | Persist DB snapshot to JSON |
 | `POST /api/project/open` | Restore from project JSON |
 
-Everything runs offline—no external services are required once dependencies are installed.
+Everything runs offline-no external services are required once dependencies are installed.
