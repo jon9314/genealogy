@@ -21,9 +21,7 @@ export async function listSources(): Promise<Source[]> {
 export async function uploadFiles(files: File[]): Promise<Source[]> {
   const form = new FormData();
   files.forEach((file) => form.append("files", file));
-  const { data } = await client.post<Source[]>("/files/upload", form, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
+  const { data } = await client.post<Source[]>("/files/upload", form);
   return data;
 }
 

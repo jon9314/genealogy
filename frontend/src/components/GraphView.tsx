@@ -3,7 +3,10 @@ import ReactFlow, {
   Background,
   Controls,
   Edge,
-  MiniMap,\n  Node,\n  NodeProps,\n  ReactFlowInstance,
+  MiniMap,
+  Node,
+  NodeProps,
+  ReactFlowInstance,
 } from "reactflow";
 
 import "reactflow/dist/style.css";
