@@ -7,6 +7,7 @@ import type { Source } from "../lib/types";
 export default function Upload() {
   const [sources, setSources] = useState<Source[]>([]);
   const [busyIds, setBusyIds] = useState<number[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     refresh();
@@ -20,9 +21,17 @@ export default function Upload() {
   const handleUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     if (!files.length) return;
-    await uploadFiles(files);
-    await refresh();
-    event.target.value = "";
+    try {
+      setIsUploading(true);
+      await uploadFiles(files);
+      await refresh();
+    } catch (error) {
+      console.error("Failed to upload files", error);
+      window.alert("Failed to upload files. Please try again.");
+    } finally {
+      setIsUploading(false);
+      event.target.value = "";
+    }
   };
 
   const handleDelete = async (id: number) => {
@@ -46,11 +55,18 @@ export default function Upload() {
       <div className="card">
         <h2>Upload descendancy PDFs</h2>
         <p>Select one or more PDF files. They are stored locally in ./data/uploads.</p>
-        <input type="file" multiple accept="application/pdf" onChange={handleUpload} />
+        <input type="file" multiple accept="application/pdf" onChange={handleUpload} disabled={isUploading} />
+        {isUploading && <p>Uploading…</p>}
       </div>
       <div className="grid two">
         {sources.map((source) => (
-          <FileCard\n            key={source.id}\n            source={source}\n            onDelete={handleDelete}\n            onRunOCR={handleOCR}\n            busy={busyIds.includes(source.id)}\n          />
+          <FileCard
+            key={source.id}
+            source={source}
+            onDelete={handleDelete}
+            onRunOCR={handleOCR}
+            busy={busyIds.includes(source.id)}
+          />
         ))}
         {!sources.length && <p>No files uploaded yet.</p>}
       </div>
