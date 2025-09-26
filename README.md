@@ -2,6 +2,80 @@
 
 A fully local-first genealogy workstation for importing scanned descendancy PDFs, running OCR with OCRmyPDF, parsing charts into linked family trees, editing via a grid and drag-and-drop graph, resolving duplicates, and exporting GEDCOM 5.5.1 and CSV files.
 
+## Quick Start (Docker)
+
+### Requirements
+- Git 2.30 or newer
+- Docker Engine 24+ with the Docker Compose plugin (on Ubuntu: `sudo apt install docker.io docker-compose-plugin`)
+- At least 5 GB of free disk space for containers, OCR cache, and uploads
+
+### Steps
+1. Open a terminal on the Linux server (or workstation) that will host the app.
+2. Clone the repository and change into it:
+   ```bash
+   git clone https://github.com/jon9314/genealogy.git
+   cd genealogy
+   ```
+3. Create the data directory that will hold OCR output, uploads, and the SQLite database:
+   ```bash
+   mkdir -p data
+   ```
+4. Build and start the containers in the background:
+   ```bash
+   docker compose up -d --build
+   ```
+5. Wait until both services report "healthy" in `docker compose ps` (usually within a minute the first time).
+6. From any machine on the same LAN, open `http://<server-ip>:8080` in your browser. Replace `<server-ip>` with the address or hostname of the Docker host. The FastAPI backend is also reachable at `http://<server-ip>:8000/api` if you need direct API access.
+
+### Everyday Docker commands
+- Check container status: `docker compose ps`
+- Tail logs (Ctrl+C to stop streaming): `docker compose logs -f`
+- Stop the stack: `docker compose down`
+- Update to the latest version:
+  ```bash
+  git pull
+  docker compose up -d --build
+  ```
+
+Uploads through the web UI can be as large as 1 GB, so make sure the `data` directory resides on storage with enough free space.
+
+## Local Development (without Docker)
+
+You can also run the backend and frontend directly on your workstation. These instructions assume macOS, Linux, or WSL.
+
+### Requirements
+- Python 3.11+
+- Node.js 18+
+- OCRmyPDF + Tesseract available on your PATH
+  - macOS: `brew install ocrmypdf`
+  - Ubuntu/Debian: `sudo apt install ocrmypdf tesseract-ocr`
+  - Windows: install the [OCRmyPDF binaries](https://ocrmypdf.readthedocs.io/en/latest/installation.html#windows) and add them to PATH
+
+### Backend setup
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -e .[dev]
+uvicorn app.main:app --reload
+```
+The API lives at `http://localhost:8000/api` and stores its SQLite database at `../data/app.db`.
+
+### Frontend setup
+```bash
+cd frontend
+npm install
+npm run dev -- --host 0.0.0.0 --port 5173
+```
+Visit `http://localhost:5173` to use the UI.
+
+### Combined dev workflow
+From the project root you can start both dev servers with one command:
+```bash
+make dev
+```
+`make dev` uses `npx concurrently` to run `uvicorn` and `npm run dev` side by side; press `Ctrl+C` to stop both.
+
 ## Features
 
 - Local PDF uploads stored under `./data/uploads`
@@ -39,76 +113,9 @@ genealogy/
   README.md          # You are here
 ```
 
-## Prerequisites (local, no Docker)
-
-- Python 3.11+
-- Node.js 18+
-- OCRmyPDF + Tesseract installed on your system
-  - **macOS**: `brew install ocrmypdf`
-  - **Ubuntu/Debian**: `sudo apt install ocrmypdf tesseract-ocr`
-  - **Windows**: install [OCRmyPDF binaries](https://ocrmypdf.readthedocs.io/en/latest/installation.html#windows) and add to PATH
-
-### Backend setup
-
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate  # on Windows: .venv\Scripts\activate
-pip install -e .[dev]
-uvicorn app.main:app --reload
-```
-
-The API lives at `http://localhost:8000/api` and stores its SQLite database at `./data/app.db`.
-
-### Frontend setup
-
-```bash
-cd frontend
-npm install
-npm run dev -- --host 0.0.0.0 --port 5173
-```
-
-Visit `http://localhost:5173` to use the UI.
-
-### Combined dev workflow
-
-From the project root:
-
-```bash
-make dev
-```
-
-This uses `npx concurrently` to start `uvicorn` and `npm run dev` side-by-side (press `Ctrl+C` to stop both).
-
-## Docker workflow
-
-```bash
-# build images
-make build
-
-# start services (backend on :8000, frontend on :8080)
-make up
-
-# stop containers
-make down
-```
-
-The backend container mounts `./data` to persist database, OCR PDFs, and project archives. The frontend image uses Nginx to serve the Vite production bundle, reverse proxy `/api` calls to the backend service, and accepts uploads up to 1 GB.
-
-### Deploying on a Linux server
-
-1. Install Docker Engine and Docker Compose plugin (on Ubuntu: `sudo apt install docker.io docker-compose-plugin`).
-2. Clone this repository onto the server and change into the project directory.
-3. Create a writable data directory if it does not exist: `mkdir -p data`.
-4. Build and start the stack in the background: `docker compose up -d --build`.
-5. From any machine on the LAN, open `http://<server-ip>:8080` to use the app. The API remains available at `http://<server-ip>:8000/api` if you need it directly.
-
-Modify `docker-compose.yml` if you prefer to expose the frontend on port 80 (change the `8080:80` mapping) or to disable the direct backend port mapping.
-
 ## Running tests
 
 Backend tests focus on the parser heuristics and GEDCOM output:
-
 ```bash
 cd backend
 pytest
@@ -142,4 +149,4 @@ pytest
 | `POST /api/project/save` | Persist DB snapshot to JSON |
 | `POST /api/project/open` | Restore from project JSON |
 
-Everything runs offline-no external services are required once dependencies are installed.
+Everything runs offline once the dependencies are installed.
