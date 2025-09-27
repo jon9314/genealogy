@@ -122,6 +122,11 @@ class Person(PersonBase, table=True):
         source_id: int,
         given: Optional[str],
         surname: Optional[str],
+        *,
+        name: Optional[str] = None,
+        gen: Optional[int] = None,
+        title: Optional[str] = None,
+        notes: Optional[str] = None,
         vitals: Optional[dict] = None,
         line_key: Optional[str] = None,
     ) -> "Person":
@@ -159,14 +164,19 @@ class Person(PersonBase, table=True):
                     person = candidate
                     break
 
-        created = False
         if person is None:
+            display_name = name or " ".join(value for value in (given, surname) if value).strip()
+            generation = gen if gen is not None else 0
             person = cls(
                 source_id=source_id,
+                name=display_name or (given or surname or ""),
+                gen=generation,
                 given=given,
                 surname=surname,
                 birth=birth_value if isinstance(birth_value, str) else birth_value,
                 death=death_value if isinstance(death_value, str) else death_value,
+                title=title,
+                notes=notes,
                 line_key=line_key,
                 normalized_given=normalized_given,
                 normalized_surname=normalized_surname,
@@ -174,7 +184,6 @@ class Person(PersonBase, table=True):
             )
             session.add(person)
             session.flush()
-            created = True
         else:
             updated = False
 
@@ -188,6 +197,12 @@ class Person(PersonBase, table=True):
             merge("surname", surname)
             merge("birth", birth_value if isinstance(birth_value, str) else birth_value)
             merge("death", death_value if isinstance(death_value, str) else death_value)
+            merge("name", name)
+            if gen is not None and (person.gen is None or person.gen == 0):
+                person.gen = gen
+                updated = True
+            merge("title", title)
+            merge("notes", notes)
 
             if line_key and not person.line_key:
                 person.line_key = line_key

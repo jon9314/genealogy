@@ -18,7 +18,16 @@ def test_person_upsert_deduplicates_by_line_key(session: Session):
     session.commit()
 
     vitals = {"birth": "1650", "death": "1700"}
-    person = Person.upsert_from_parse(session, source.id, "John", "Newcomb", vitals, line_key="a1")
+    person = Person.upsert_from_parse(
+        session,
+        source.id,
+        "John",
+        "Newcomb",
+        vitals=vitals,
+        line_key="a1",
+        gen=1,
+        name="John Newcomb",
+    )
     session.commit()
 
     same = Person.upsert_from_parse(session, source.id, "John", "Newcomb", vitals, line_key="a1")
@@ -37,7 +46,16 @@ def test_person_upsert_soft_dedupe(session: Session):
     first = Person.upsert_from_parse(session, source.id, "Andrew", "Newcomb", vitals, line_key="row-1")
     session.commit()
 
-    second = Person.upsert_from_parse(session, source.id, "Andrw", "Newcomb", {"birth": "1700"}, line_key=None)
+    second = Person.upsert_from_parse(
+        session,
+        source.id,
+        "Andrw",
+        "Newcomb",
+        vitals={"birth": "1700"},
+        line_key=None,
+        gen=1,
+        name="Andrw Newcomb",
+    )
     session.commit()
 
     assert first.id == second.id

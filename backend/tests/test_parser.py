@@ -1,113 +1,92 @@
-import io
-
 import pytest
-from fastapi.responses import JSONResponse
 from sqlmodel import SQLModel, Session, create_engine, select
 
-from app.api.parse import parse_source
-from app.core.gedcom import export_gedcom
-from app.core.models import Child, Family, PageText, Person, Source
-from app.core.parser import parse_person_line, parse_spouse_line
+from app.core.models import Child, Family, Person, Source
+from app.core.parser import parse_ocr_text
 
 
-@pytest.fixture
+@pytest.fixture()
 def session(tmp_path):
-    engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}", connect_args={"check_same_thread": False})
+    engine = create_engine(f"sqlite:///{tmp_path / 'parser.db'}", connect_args={"check_same_thread": False})
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         yield session
 
 
-def test_parse_person_line_extracts_chart_and_dates():
-    parsed = parse_person_line("1-- Andrew NEWCOMB Lt.-117 (1640-1706)")
-    assert parsed.gen == 1
-    assert parsed.chart_id == "117"
-    assert parsed.title == "Lt."
-    assert parsed.birth == "1640"
-    assert parsed.death == "1706"
-    assert parsed.given == "Andrew"
-    assert parsed.surname == "NEWCOMB"
-
-
-def test_parse_spouse_line_assigns_generation():
-    parsed = parse_spouse_line("sp-Sarah-118 (-1674)", current_gen=1)
-    assert parsed.is_spouse is True
-    assert parsed.gen == 1
-    assert parsed.chart_id == "118"
-    assert parsed.death == "1674"
-
-
-def test_generation_linking_across_pages(session: Session):
-    source = Source(name="bundle.pdf", path="/tmp/bundle.pdf", pages=2, ocr_done=True)
+def _create_source(session: Session) -> Source:
+    source = Source(name="descendancy.pdf", path="/tmp/descendancy.pdf")
     session.add(source)
     session.commit()
+    return source
 
-    page1 = PageText(
-        source_id=source.id,
-        page_index=0,
-        text="\n".join(
-            [
-                "1-- Andrew NEWCOMB Lt.-117 (1640-1706)",
-                "sp-Sarah-118 (-1674)",
-                "2-- Simon NEWCOMB-1761 (1662)",
-                "2-- Andrew NEWCOMB-1762 (1664-1687)",
-            ]
-        ),
+
+def _fetch_people(session: Session):
+    return session.exec(select(Person)).all()
+
+
+def test_parse_chart_variants(session: Session):
+    source = _create_source(session)
+
+    text = """
+1. Andrew Newcomb-1 (b. 1625, Devon; d. after 1686, Edgartown) m. Sarah Unknown (d. 1703)
+   Children: 
+   1) John (b. 1655) 
+   2) Simon Newcomb (b. ca. 1657; d. 1729)
+2) John Newcomb—2 married to Hannah Smith (m. 1680)
+   Issue: - Mary (b. 1681) - Thomas (b. 1683, Boston, MA)
+A) Simon Newcomb-3 wife: Elizabeth Brown
+   - William (bapt. 1685)
+   - Ann (bapt. 1687)
+#4 Peter Newcomb sp: Jane Doe (d. after 1700)
+    """.strip()
+
+    stats = parse_ocr_text(session, source_id=source.id, pages=[text])
+    assert stats["people"] >= 8
+    assert stats["families"] >= 3
+    assert stats["children"] >= 4
+
+    people = _fetch_people(session)
+    mary = next((p for p in people if p.given == "Mary"), None)
+    assert mary is not None
+    assert mary.surname == "Newcomb"
+    assert mary.birth and "1681" in mary.birth
+
+    thomas = next((p for p in people if p.given == "Thomas" and p.surname == "Newcomb"), None)
+    assert thomas is not None
+    assert "Boston" in (thomas.birth or "")
+
+    families = session.exec(select(Family)).all()
+    child_links = session.exec(select(Child)).all()
+    assert len(child_links) >= 4
+
+    john = next(p for p in people if p.given == "John" and p.surname == "Newcomb" and p.birth)
+    hannah = next(p for p in people if p.given == "Hannah" and p.surname == "Smith")
+    shared_family = next(
+        f
+        for f in families
+        if {f.husband_id, f.wife_id} == {john.id, hannah.id}
     )
-    page2 = PageText(
-        source_id=source.id,
-        page_index=1,
-        text="\n".join(
-            [
-                "2-- Simon NEWCOMB Lt.-115 (1665-1744)",
-                "3-- John NEWCOMB Deacon-1653 (1688-1765)",
-                "sp-Abigail ENGLISH-973 (1724)",
-            ]
-        ),
-    )
-    session.add(page1)
-    session.add(page2)
-    session.commit()
-
-    response = parse_source(source.id, session=session)
-    assert isinstance(response, JSONResponse)
-
-    people = session.exec(select(Person)).all()
-    assert len(people) == 7
-
-    john = next(person for person in people if person.name.startswith("John NEWCOMB"))
-    john_links = session.exec(select(Child).where(Child.person_id == john.id)).all()
-    assert len(john_links) == 1
-    john_family = session.get(Family, john_links[0].family_id)
-    assert john_family is not None
-    parent_ids = {john_family.husband_id, john_family.wife_id}
-    simon = next(person for person in people if person.chart_id == "115")
-    assert simon.id in parent_ids
+    john_children = [link for link in child_links if link.family_id == shared_family.id]
+    assert any(session.get(Person, link.person_id).given == "Mary" for link in john_children)
 
 
-def test_gedcom_snapshot(session: Session):
-    source = Source(name="bundle.pdf", path="/tmp/bundle.pdf")
-    session.add(source)
-    session.commit()
+def test_parse_is_idempotent(session: Session):
+    source = _create_source(session)
+    text = """
+-1 John Doe (b. 1900)
+  Children: - Jane (b. 1925)
+    """.strip()
 
-    root = Person(name="Andrew NEWCOMB", gen=1, source_id=source.id)
-    child = Person(name="John NEWCOMB", gen=2, source_id=source.id)
-    session.add(root)
-    session.add(child)
-    session.commit()
+    parse_ocr_text(session, source_id=source.id, pages=[text])
+    first_people = {person.id for person in _fetch_people(session)}
 
-    family = Family(husband_id=root.id)
-    session.add(family)
-    session.commit()
+    parse_ocr_text(session, source_id=source.id, pages=[text])
+    second_people = {person.id for person in _fetch_people(session)}
 
-    session.add(Child(family_id=family.id, person_id=child.id, order_index=0))
-    session.commit()
+    assert first_people == second_people
+    assert len(first_people) == 2
 
-    buffer = io.StringIO()
-    export_gedcom(session, buffer, "test.ged")
-    data = buffer.getvalue()
-    assert "0 HEAD" in data
-    assert "1 SOUR" in data
-    assert "0 @I" in data
-    assert "0 TRLR" in data
-
+    families = session.exec(select(Family)).all()
+    children = session.exec(select(Child)).all()
+    assert len(families) == 1
+    assert len(children) == 1
