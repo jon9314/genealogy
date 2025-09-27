@@ -20,10 +20,19 @@ class Settings(BaseSettings):
     database_path: Path = Field(default=Path("./data/app.db"))
     database_echo: bool = False
 
-    ocrmypdf_executable: str = "ocrmypdf"
-    ocrmypdf_language: str = "eng"
-    ocrmypdf_remove_background: bool = False
-    ocrmypdf_timeout_secs: int = 600
+    ocrmypdf_executable: str = Field(default="ocrmypdf", env="OCRMYPDF_EXECUTABLE")
+    language: str = Field(default="eng", env="OCRMYPDF_LANGUAGE")
+    remove_background: bool = Field(default=False, env="OCRMYPDF_REMOVE_BACKGROUND")
+    fast_web_view_mb: int = Field(default=200, env="OCRMYPDF_FAST_WEB_VIEW_MB")
+    ocrmypdf_timeout_secs: int = Field(default=600, env="OCRMYPDF_TIMEOUT_SECS")
+
+    @property
+    def ocrmypdf_language(self) -> str:
+        return self.language
+
+    @property
+    def ocrmypdf_remove_background(self) -> bool:
+        return self.remove_background
 
     model_config = SettingsConfigDict(
         env_prefix="GENEALOGY_",

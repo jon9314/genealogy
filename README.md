@@ -130,7 +130,8 @@ pytest
 - `GENEALOGY_DATABASE_PATH` - override the SQLite path (defaults to `./data/app.db`)
 - `GENEALOGY_OCRMYPDF_EXECUTABLE` - provide an alternate OCRmyPDF binary
 - `GENEALOGY_OCRMYPDF_LANGUAGE` - change the Tesseract language pack (default `eng`)
-- `GENEALOGY_OCRMYPDF_REMOVE_BACKGROUND` - set to `true` to enable background removal flag
+- `GENEALOGY_OCRMYPDF_REMOVE_BACKGROUND` - set to `true` to enable the `--remove-background` flag
+- `GENEALOGY_OCRMYPDF_FAST_WEB_VIEW_MB` - set the `--fast-web-view` target size (default `200`, set to `0` to disable)
 
 ## API overview
 
