@@ -4,8 +4,8 @@ import re
 from dataclasses import dataclass
 from typing import Optional
 
-PERSON_RE = re.compile(r"^\s*(?:X\s*)?(?P<gen>\d+)\s*[-–]{1,2}\s*(?P<body>.+)$")
-SPOUSE_RE = re.compile(r"^\s*(?:X\s*)?sp\s*[-–]\s*(?P<body>.+)$", re.IGNORECASE)
+PERSON_RE = re.compile(r"^\s*(?:X\s*)?(?P<gen>\d+)\s*[-\u2013]{1,2}\s*(?P<body>.+)$")
+SPOUSE_RE = re.compile(r"^\s*(?:X\s*)?sp\s*[-\u2013]\s*(?P<body>.+)$", re.IGNORECASE)
 DATE_RE = re.compile(r"\(([^()]*)\)\s*$")
 CHART_ID_RE = re.compile(r"-(\w+)$")
 TITLE_TOKENS = {"LT", "LT.", "CAPT", "CAPT.", "DEACON", "REV", "REV.", "DR", "DR.", "ELD", "ELD.", "ELDER"}

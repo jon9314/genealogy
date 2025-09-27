@@ -78,7 +78,7 @@ def open_project(payload: ProjectOpenRequest, session: Session = Depends(get_ses
     for source in project.sources:
         session.add(Source(**source.model_dump()))
     session.commit()
-\n
+
     for page in project.pages:
         session.add(PageText(**page.model_dump()))
     session.commit()
@@ -100,5 +100,4 @@ def open_project(payload: ProjectOpenRequest, session: Session = Depends(get_ses
 
 def _timestamped_filename(stem: str, suffix: str) -> str:
     return f"{stem}-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}.{suffix}"
-
 

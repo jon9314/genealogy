@@ -109,7 +109,8 @@ class ChildRead(ChildBase):
     id: int
 
 
-class FamilyWithChildren(FamilyRead):\n    children: list[ChildRead] = Field(default_factory=list)
+class FamilyWithChildren(FamilyRead):
+    children: list[ChildRead] = Field(default_factory=list)
 
 
 class ReparentRequest(SQLModel):
@@ -125,4 +126,3 @@ class ProjectPayload(SQLModel):
     persons: list[Person]
     families: list[Family]
     children: list[Child]
-
