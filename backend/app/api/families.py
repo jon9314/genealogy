@@ -45,7 +45,7 @@ def update_family(family_id: int, payload: FamilyUpdate, session: Session = Depe
     family = session.get(Family, family_id)
     if not family:
         raise HTTPException(status_code=404, detail="Family not found")
-    for field, value in payload.dict(exclude_unset=True).items():
+    for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(family, field, value)
     session.add(family)
     session.commit()

@@ -47,7 +47,7 @@ def save_project(
     filename = payload.filename if payload and payload.filename else _timestamped_filename("project", "json")
     target = settings.project_dir / filename
     with target.open("w", encoding="utf-8") as fp:
-        json.dump(data.dict(), fp, default=str, indent=2)
+        json.dump(data.model_dump(), fp, default=str, indent=2)
 
     last_pointer = settings.data_dir / "lastProject.json"
     with last_pointer.open("w", encoding="utf-8") as fp:
@@ -76,23 +76,23 @@ def open_project(payload: ProjectOpenRequest, session: Session = Depends(get_ses
     session.commit()
 
     for source in project.sources:
-        session.add(Source(**source.dict()))
+        session.add(Source(**source.model_dump()))
     session.commit()
 \n
     for page in project.pages:
-        session.add(PageText(**page.dict()))
+        session.add(PageText(**page.model_dump()))
     session.commit()
 
     for person in project.persons:
-        session.add(Person(**person.dict()))
+        session.add(Person(**person.model_dump()))
     session.commit()
 
     for family in project.families:
-        session.add(Family(**family.dict()))
+        session.add(Family(**family.model_dump()))
     session.commit()
 
     for child in project.children:
-        session.add(Child(**child.dict()))
+        session.add(Child(**child.model_dump()))
     session.commit()
 
     return JSONResponse({"status": "opened", "filename": payload.filename})
@@ -100,6 +100,5 @@ def open_project(payload: ProjectOpenRequest, session: Session = Depends(get_ses
 
 def _timestamped_filename(stem: str, suffix: str) -> str:
     return f"{stem}-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}.{suffix}"
-
 
 

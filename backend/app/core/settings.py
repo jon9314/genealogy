@@ -4,7 +4,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
-from pydantic import BaseSettings, Field
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -24,9 +25,10 @@ class Settings(BaseSettings):
     ocrmypdf_remove_background: bool = False
     ocrmypdf_timeout_secs: int = 600
 
-    class Config:
-        env_prefix = "GENEALOGY_"
-        case_sensitive = False
+    model_config = SettingsConfigDict(
+        env_prefix="GENEALOGY_",
+        case_sensitive=False,
+    )
 
     @property
     def database_url(self) -> str:

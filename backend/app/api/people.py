@@ -37,7 +37,7 @@ def update_person(person_id: int, payload: PersonUpdate, session: Session = Depe
     person = session.get(Person, person_id)
     if not person:
         raise HTTPException(status_code=404, detail="Person not found")
-    for field, value in payload.dict(exclude_unset=True).items():
+    for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(person, field, value)
     session.add(person)
     session.commit()
@@ -68,4 +68,3 @@ def delete_person(person_id: int, session: Session = Depends(get_session)) -> JS
     session.delete(person)
     session.commit()
     return JSONResponse({"status": "deleted"})
-
