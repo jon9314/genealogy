@@ -158,22 +158,37 @@ def split_spouses(text: str) -> Tuple[str, List[str]]:
     return primary or text, spouses
 
 
-def parse_vitals(chunk: str) -> Dict[str, Optional[Vitals]]:
+def _remove_span(text: str, start: int, end: int) -> str:
+    return text[:start] + text[end:]
+
+
+def parse_vitals(chunk: str) -> Tuple[str, Dict[str, Optional[Vitals]]]:
+    """Extract birth/death vitals and return the remaining text."""
+
+    working = chunk
     data: Dict[str, Optional[Vitals]] = {"birth": None, "death": None}
+
     for regex, key in ((INLINE_VITAL, "birth"), (INLINE_DEATH, "death")):
-        match = regex.search(chunk)
-        if not match:
-            continue
-        raw = normalize_text(match.group("body"))
-        approx = bool(APPROX_TOKEN.search(raw))
-        year_match = YEAR_TOKEN.search(raw)
-        year = int(year_match.group(1)) if year_match else None
-        parts = PLACE_SPLIT.split(raw)
-        place = None
-        if len(parts) > 1:
-            place = ", ".join(parts[1:])
-        data[key] = Vitals(raw=raw, year=year, approx=approx, place=place)
-    return data
+        while True:
+            match = regex.search(working)
+            if not match:
+                break
+            raw = normalize_text(match.group("body"))
+            approx = bool(APPROX_TOKEN.search(raw))
+            year_match = YEAR_TOKEN.search(raw)
+            year = int(year_match.group(1)) if year_match else None
+            parts = PLACE_SPLIT.split(raw)
+            place = ", ".join(parts[1:]) if len(parts) > 1 else None
+            if data[key] is None:
+                data[key] = Vitals(raw=raw, year=year, approx=approx, place=place)
+            start, end = match.span()
+            working = _remove_span(working, start, end)
+
+    # Remove leftover empty parentheses and extra punctuation
+    working = re.sub(r"\(\s*\)", "", working)
+    working = normalize_text(re.sub(r"[;,]+", " ", working)).strip(",;:- ")
+
+    return working, data
 
 
 def parse_name(text: str, inferred_surname: Optional[str]) -> Tuple[str, str, Optional[str]]:
@@ -241,9 +256,9 @@ def parse_ocr_text(
 
         if parsed.kind == "person":
             primary_text, spouse_chunks = split_spouses(text)
-            vitals = parse_vitals(primary_text)
+            primary_clean, vitals = parse_vitals(primary_text)
             surname_hint = generation_stack[-1].surname_hint if generation_stack else None
-            given, surname, _ = parse_name(primary_text, surname_hint)
+            given, surname, _ = parse_name(primary_clean, surname_hint)
             generation = token_to_generation(parsed.token, len(generation_stack))
 
             while generation_stack and generation_stack[-1].indent >= parsed.indent:
@@ -254,14 +269,14 @@ def parse_ocr_text(
                 source_id,
                 given,
                 surname,
-                name=primary_text,
+                name=primary_clean,
                 gen=generation,
                 notes=raw_line,
                 vitals={
                     "birth": vitals["birth"].__dict__ if vitals["birth"] else None,
                     "death": vitals["death"].__dict__ if vitals["death"] else None,
                 },
-                line_key=line_key(source_id, parent_path, primary_text),
+                line_key=line_key(source_id, parent_path, primary_clean),
             )
             if person.id:
                 people_seen.add(person.id)
@@ -276,22 +291,22 @@ def parse_ocr_text(
             )
 
             for spouse_text in spouse_chunks:
-                sp_vitals = parse_vitals(spouse_text)
-                sg, ss, _ = parse_name(spouse_text, None)
+                spouse_clean, sp_vitals = parse_vitals(spouse_text)
+                sg, ss, _ = parse_name(spouse_clean, None)
                 parent_path = stack_parent_path(generation_stack)
                 spouse = Person.upsert_from_parse(
                     session,
                     source_id,
                     sg,
                     ss,
-                    name=spouse_text,
+                    name=spouse_clean,
                     gen=person.gen,
                     notes=spouse_text,
                     vitals={
                         "birth": sp_vitals["birth"].__dict__ if sp_vitals["birth"] else None,
                         "death": sp_vitals["death"].__dict__ if sp_vitals["death"] else None,
                     },
-                    line_key=line_key(source_id, parent_path + (person.given or "",), spouse_text),
+                    line_key=line_key(source_id, parent_path + (person.given or "",), spouse_clean),
                 )
                 if spouse.id:
                     people_seen.add(spouse.id)
@@ -305,22 +320,22 @@ def parse_ocr_text(
 
         if parsed.kind == "spouse" and generation_stack:
             principal = generation_stack[-1].person
-            sp_vitals = parse_vitals(parsed.text)
-            sg, ss, _ = parse_name(parsed.text, None)
+            spouse_clean, sp_vitals = parse_vitals(parsed.text)
+            sg, ss, _ = parse_name(spouse_clean, None)
             parent_path = stack_parent_path(generation_stack)
             spouse = Person.upsert_from_parse(
                 session,
                 source_id,
                 sg,
                 ss,
-                name=parsed.text,
+                name=spouse_clean,
                 gen=principal.gen,
                 notes=raw_line,
                 vitals={
                     "birth": sp_vitals["birth"].__dict__ if sp_vitals["birth"] else None,
                     "death": sp_vitals["death"].__dict__ if sp_vitals["death"] else None,
                 },
-                line_key=line_key(source_id, parent_path + (principal.given or "",), parsed.text),
+                line_key=line_key(source_id, parent_path + (principal.given or "",), spouse_clean),
             )
             if spouse.id:
                 people_seen.add(spouse.id)
@@ -345,8 +360,8 @@ def parse_ocr_text(
                     families_seen.add(family.id)
                 parent_path = stack_parent_path(generation_stack)
                 for child_text in parsed.inline_children:
-                    child_vitals = parse_vitals(child_text)
-                    cg, cs, _ = parse_name(child_text, node.surname_hint)
+                    child_clean, child_vitals = parse_vitals(child_text)
+                    cg, cs, _ = parse_name(child_clean, node.surname_hint)
                     parent_gen = node.person.gen if node.person.gen is not None else len(generation_stack)
                     child_gen = parent_gen + 1
                     if node.person.gen is None:
@@ -356,14 +371,14 @@ def parse_ocr_text(
                         source_id,
                         cg,
                         cs,
-                        name=child_text,
+                        name=child_clean,
                         gen=child_gen,
                         notes=child_text,
                         vitals={
                             "birth": child_vitals["birth"].__dict__ if child_vitals["birth"] else None,
                             "death": child_vitals["death"].__dict__ if child_vitals["death"] else None,
                         },
-                        line_key=line_key(source_id, parent_path + (principal.given or "",), child_text),
+                        line_key=line_key(source_id, parent_path + (principal.given or "",), child_clean),
                     )
                     if child.id:
                         people_seen.add(child.id)
@@ -380,8 +395,8 @@ def parse_ocr_text(
             )
             if family is None:
                 continue
-            child_vitals = parse_vitals(parsed.text)
-            cg, cs, _ = parse_name(parsed.text, node.surname_hint)
+            child_clean, child_vitals = parse_vitals(parsed.text)
+            cg, cs, _ = parse_name(child_clean, node.surname_hint)
             parent_path = stack_parent_path(generation_stack)
             parent_gen = principal.gen if principal.gen is not None else len(generation_stack)
             child_gen = parent_gen + 1
@@ -392,14 +407,14 @@ def parse_ocr_text(
                 source_id,
                 cg,
                 cs,
-                name=parsed.text,
+                name=child_clean,
                 gen=child_gen,
                 notes=parsed.text,
                 vitals={
                     "birth": child_vitals["birth"].__dict__ if child_vitals["birth"] else None,
                     "death": child_vitals["death"].__dict__ if child_vitals["death"] else None,
                 },
-                line_key=line_key(source_id, parent_path + (principal.given or "",), parsed.text),
+                line_key=line_key(source_id, parent_path + (principal.given or "",), child_clean),
             )
             if child.id:
                 people_seen.add(child.id)
