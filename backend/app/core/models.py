@@ -53,6 +53,8 @@ class PersonBase(SQLModel):
     sex: Optional[str] = Field(default=None, regex="^[MF]$")
     title: Optional[str] = None
     notes: Optional[str] = None
+    line_key: Optional[str] = Field(default=None, index=True)
+    approx: Optional[bool] = None
     source_id: Optional[int] = Field(default=None, foreign_key="source.id")
     page_index: Optional[int] = None
     line_index: Optional[int] = None
@@ -129,23 +131,32 @@ class Person(PersonBase, table=True):
         notes: Optional[str] = None,
         vitals: Optional[dict] = None,
         line_key: Optional[str] = None,
+        approx: Optional[bool] = None,
     ) -> "Person":
         normalized_given = cls._normalize_name(given)
         normalized_surname = cls._normalize_name(surname)
 
-        birth_value = None
-        death_value = None
-        birth_year = None
-        if vitals:
-            birth_value = vitals.get("birth") if isinstance(vitals, dict) else None
-            death_value = vitals.get("death") if isinstance(vitals, dict) else None
-            if isinstance(birth_value, dict):
-                birth_year = birth_value.get("year") or cls._extract_year(birth_value.get("raw"))
-                birth_value = birth_value.get("raw") or birth_value.get("text")
-            elif isinstance(birth_value, str):
-                birth_year = cls._extract_year(birth_value)
-            if isinstance(death_value, dict):
-                death_value = death_value.get("raw") or death_value.get("text")
+        birth_info = vitals.get("birth") if isinstance(vitals, dict) else None
+        death_info = vitals.get("death") if isinstance(vitals, dict) else None
+
+        approx_flag = bool(approx)
+        birth_value: Optional[str] = None
+        death_value: Optional[str] = None
+        birth_year: Optional[int] = None
+
+        if isinstance(birth_info, dict):
+            approx_flag = approx_flag or bool(birth_info.get("approx"))
+            birth_year = birth_info.get("year") or cls._extract_year(birth_info.get("raw"))
+            birth_value = birth_info.get("raw") or birth_info.get("text") or None
+        elif isinstance(birth_info, str):
+            birth_year = cls._extract_year(birth_info)
+            birth_value = birth_info or None
+
+        if isinstance(death_info, dict):
+            approx_flag = approx_flag or bool(death_info.get("approx"))
+            death_value = death_info.get("raw") or death_info.get("text") or None
+        elif isinstance(death_info, str):
+            death_value = death_info or None
 
         query = select(cls).where(cls.source_id == source_id)
         person: Optional[Person] = None
@@ -164,6 +175,8 @@ class Person(PersonBase, table=True):
                     person = candidate
                     break
 
+        approx_value = True if approx_flag else None
+
         if person is None:
             display_name = name or " ".join(value for value in (given, surname) if value).strip()
             generation = gen if gen is not None else 0
@@ -173,14 +186,15 @@ class Person(PersonBase, table=True):
                 gen=generation,
                 given=given,
                 surname=surname,
-                birth=birth_value if isinstance(birth_value, str) else birth_value,
-                death=death_value if isinstance(death_value, str) else death_value,
+                birth=birth_value,
+                death=death_value,
                 title=title,
                 notes=notes,
                 line_key=line_key,
                 normalized_given=normalized_given,
                 normalized_surname=normalized_surname,
                 birth_year=birth_year,
+                approx=approx_value,
             )
             session.add(person)
             session.flush()
@@ -195,8 +209,8 @@ class Person(PersonBase, table=True):
 
             merge("given", given)
             merge("surname", surname)
-            merge("birth", birth_value if isinstance(birth_value, str) else birth_value)
-            merge("death", death_value if isinstance(death_value, str) else death_value)
+            merge("birth", birth_value)
+            merge("death", death_value)
             merge("name", name)
             if gen is not None and (person.gen is None or person.gen == 0):
                 person.gen = gen
@@ -213,13 +227,17 @@ class Person(PersonBase, table=True):
             if normalized_surname and person.normalized_surname != normalized_surname:
                 person.normalized_surname = normalized_surname
                 updated = True
-            if birth_year and person.birth_year != birth_year:
+            if birth_year is not None and person.birth_year != birth_year:
                 person.birth_year = birth_year
+                updated = True
+            if approx_flag and person.approx is not True:
+                person.approx = True
                 updated = True
             if updated:
                 session.add(person)
 
         return person
+
 
 
 class PersonRead(PersonBase):
@@ -242,6 +260,8 @@ class FamilyBase(SQLModel):
     husband_id: Optional[int] = Field(default=None, foreign_key="person.id")
     wife_id: Optional[int] = Field(default=None, foreign_key="person.id")
     notes: Optional[str] = None
+    line_key: Optional[str] = Field(default=None, index=True)
+    approx: Optional[bool] = None
 
 
 class Family(FamilyBase, table=True):
@@ -260,9 +280,18 @@ class Family(FamilyBase, table=True):
         source_id: int,
         person_a_id: int,
         person_b_id: int,
+        *,
+        line_key: Optional[str] = None,
+        approx: Optional[bool] = None,
     ) -> "Family":
         if person_a_id == person_b_id:
-            return cls.ensure_for_single_parent(session, source_id, person_a_id)
+            return cls.ensure_for_single_parent(
+                session,
+                source_id,
+                person_a_id,
+                line_key=line_key,
+                approx=approx,
+            )
 
         pair = sorted((person_a_id, person_b_id))
         existing = session.exec(
@@ -277,8 +306,17 @@ class Family(FamilyBase, table=True):
             )
         ).first()
         if existing:
+            changed = False
             if existing.husband_id not in pair or existing.wife_id not in pair:
                 existing.husband_id, existing.wife_id = pair
+                changed = True
+            if line_key and not existing.line_key:
+                existing.line_key = line_key
+                changed = True
+            if approx is True and existing.approx is not True:
+                existing.approx = True
+                changed = True
+            if changed:
                 session.add(existing)
             existing.is_single_parent = False
             return existing
@@ -288,10 +326,13 @@ class Family(FamilyBase, table=True):
             husband_id=pair[0],
             wife_id=pair[1],
             is_single_parent=False,
+            line_key=line_key,
+            approx=approx,
         )
         session.add(family)
         session.flush()
         return family
+
 
     @classmethod
     def ensure_for_single_parent(
@@ -299,6 +340,9 @@ class Family(FamilyBase, table=True):
         session: Session,
         source_id: int,
         parent_id: int,
+        *,
+        line_key: Optional[str] = None,
+        approx: Optional[bool] = None,
     ) -> "Family":
         existing = session.exec(
             select(cls).where(
@@ -310,6 +354,15 @@ class Family(FamilyBase, table=True):
             )
         ).first()
         if existing:
+            changed = False
+            if line_key and not existing.line_key:
+                existing.line_key = line_key
+                changed = True
+            if approx is True and existing.approx is not True:
+                existing.approx = True
+                changed = True
+            if changed:
+                session.add(existing)
             return existing
 
         parent = session.get(Person, parent_id)
@@ -321,10 +374,13 @@ class Family(FamilyBase, table=True):
             husband_id=husband_id,
             wife_id=wife_id,
             is_single_parent=True,
+            line_key=line_key,
+            approx=approx,
         )
         session.add(family)
         session.flush()
         return family
+
 
 
 class FamilyRead(FamilyBase):
@@ -341,6 +397,8 @@ class ChildBase(SQLModel):
     family_id: int = Field(foreign_key="family.id")
     person_id: int = Field(foreign_key="person.id")
     order_index: int = 0
+    line_key: Optional[str] = Field(default=None, index=True)
+    approx: Optional[bool] = None
 
 
 class Child(ChildBase, table=True):
@@ -351,23 +409,47 @@ class Child(ChildBase, table=True):
     )
 
     @classmethod
-    def link(cls, session: Session, family_id: int, child_id: int) -> "Child":
+    def link(
+        cls,
+        session: Session,
+        family_id: int,
+        child_id: int,
+        *,
+        line_key: Optional[str] = None,
+        approx: Optional[bool] = None,
+    ) -> "Child":
         existing = session.exec(
             select(cls).where(
                 and_(cls.family_id == family_id, cls.person_id == child_id)
             )
         ).first()
         if existing:
+            changed = False
+            if line_key and not existing.line_key:
+                existing.line_key = line_key
+                changed = True
+            if approx is True and existing.approx is not True:
+                existing.approx = True
+                changed = True
+            if changed:
+                session.add(existing)
             return existing
 
         order_query = session.exec(
             select(cls).where(cls.family_id == family_id).order_by(cls.order_index.desc())
         ).first()
         order_index = (order_query.order_index + 1) if order_query else 0
-        child = cls(family_id=family_id, person_id=child_id, order_index=order_index)
+        child = cls(
+            family_id=family_id,
+            person_id=child_id,
+            order_index=order_index,
+            line_key=line_key,
+            approx=approx,
+        )
         session.add(child)
         session.flush()
         return child
+
 
 
 class ChildRead(ChildBase):
