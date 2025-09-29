@@ -14,7 +14,7 @@ from .models import Child, Family, Person
 LOGGER = logging.getLogger(__name__)
 
 DASH_VARIANTS = "\u2010\u2011\u2012\u2013\u2014\u2015\u2212"
-PERSON_PATTERN = re.compile(r"^\s*(\d+)--\s+(.*)$")
+PERSON_PATTERN = re.compile(r"^\s*(?:[xX×✗✘]+\s*){0,2}\s*([0-9Il|O]{1,2})\s*--\s+(.*)$")
 SPOUSE_PATTERN = re.compile(r"^\s*sp-\s+(.*)$", re.IGNORECASE)
 HEADER_PATTERNS = [
     re.compile(r"^\s*Page\s+\d+\s*$", re.IGNORECASE),
@@ -24,6 +24,8 @@ HEADER_PATTERNS = [
     ),
     re.compile(r"^\s*(Descendancy|Descendency|Descendants|Genealogy)\b.*$", re.IGNORECASE),
 ]
+GEN_CHAR_MAP = str.maketrans({'I': '1', 'l': '1', '|': '1', 'O': '0', 'o': '0'})
+
 APPROX_WORD_RE = re.compile(r"\b(?:abt|about|approx|around|circa|ca\.?|c\.?|bef\.?|aft\.?|before|after)\b", re.IGNORECASE)
 
 
@@ -280,7 +282,13 @@ def parse_ocr_text(
     for page_index, line_index, raw_line in iter_lines(pages):
         person_match = PERSON_PATTERN.match(raw_line)
         if person_match:
-            gen = int(person_match.group(1))
+            raw_gen = person_match.group(1).strip()
+            normalized_gen = raw_gen.translate(GEN_CHAR_MAP)
+            normalized_gen = re.sub(r'\D', '', normalized_gen)
+            if not normalized_gen:
+                LOGGER.debug('Skipping line with unparseable generation token: %s', raw_line)
+                continue
+            gen = int(normalized_gen)
             text_value = person_match.group(2).strip()
 
             while generation_stack and generation_stack[-1].gen >= gen:
