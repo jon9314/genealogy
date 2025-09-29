@@ -1,125 +1,105 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import hashlib
 import logging
 import re
-import unicodedata
 from dataclasses import dataclass
-from sqlalchemy import text
-from sqlalchemy.exc import OperationalError
 from typing import Dict, Iterator, List, Optional, Tuple
 
+from sqlalchemy import text
 from sqlmodel import Session
 
 from .models import Child, Family, Person
 
 LOGGER = logging.getLogger(__name__)
 
-DASH_SET = "\u2010\u2011\u2012\u2013\u2014\u2015\u2212-"
-COLUMN_TOLERANCE = 2
-
-PERSON_LINE = re.compile(
-    rf"^(?P<leading>\s*)(?P<gen>\d+)\s*[{DASH_SET}]{{2}}\s+(?P<body>.+)$"
-)
-SPOUSE_LINE = re.compile(
-    rf"^(?P<leading>\s*)sp\s*[{DASH_SET}]\s*(?P<body>.+)$",
-    re.IGNORECASE,
-)
-PAREN_VITAL = re.compile(r"\((?P<body>[^()]*)\)\s*$")
-
-APPROX_TOKEN = re.compile(
-    r"(?:\b(?:abt|about|around|ca\.?|circa|before|after|bef\.?|aft\.?|c\.)\b|~|\?)",
-    re.IGNORECASE,
-)
-YEAR_TOKEN = re.compile(r"\b(\d{4})\b")
-ID_SUFFIX = re.compile(rf"[{DASH_SET}]\s*(\d+)$")
-TITLE_PATTERN = re.compile(
-    r"(?<!\w)(?P<title>(?:Lt\.?|Capt\.?|Col\.?|Maj\.?|Rev\.?|Dr\.?|Deacon|Sgt\.?|Gen\.?|General|Prof\.?|Judge|Hon\.?|Elder|Sir|Lady))(?!\w)",
-    re.IGNORECASE,
-)
-NOTE_SEPARATORS = [",", ";", " - ", ": "]
-
-
-@dataclass
-class Vitals:
-    raw: str
-    year: Optional[int] = None
-    approx: bool = False
-    place: Optional[str] = None
-
-
-@dataclass
-class ParsedLine:
-    kind: str
-    text: str
-    raw: str
-    page_index: int
-    line_index: int
-    generation: Optional[int] = None
-    content_col: Optional[int] = None
-
-
-@dataclass
-class ContextNode:
-    generation: int
-    person: Person
-    surname_hint: Optional[str]
-    content_col: int
-    family: Optional[Family] = None
-    approx: bool = False
-
-
-TOKEN_START = re.compile(r'(?:\d+\s*[{}]{{2}}\s+|sp\s*[{}])'.format(DASH_SET, DASH_SET), re.IGNORECASE)
-
-_DEFECTIVE_GEN_PREFIX = re.compile(r'(?i)(?<=\b)[il|](?=\d+\s*[{}]{{2}})'.format(DASH_SET))
-_DEFECTIVE_SPOUSE_PREFIX = re.compile(r'(?i)(sp)\s*[~]')
-_DEFECTIVE_DASH = re.compile(r'[~]')
-_DEFECTIVE_LIKEGEN = re.compile(r'(?i)(?<!\d)([il|]+)(\d+\s*[{}]{{2}})'.format(DASH_SET))
-
-
-def _normalize_page_text(raw: str) -> str:
-    normalized = raw.replace('\r\n', '\n').replace('\r', '\n')
-    normalized = _DEFECTIVE_DASH.sub('-', normalized)
-    normalized = _DEFECTIVE_SPOUSE_PREFIX.sub(r"\1 -", normalized)
-    normalized = _DEFECTIVE_GEN_PREFIX.sub('', normalized)
-    normalized = _DEFECTIVE_LIKEGEN.sub(lambda m: m.group(2), normalized)
-    return normalized
-
-
-
-
-def _split_tokens(segment: str) -> List[str]:
-    working = segment.strip()
-    if not working:
-        return []
-    matches = list(TOKEN_START.finditer(working))
-    if not matches:
-        return [working]
-    pieces: List[str] = []
-    last = 0
-    for match in matches:
-        start = match.start()
-        if start != last:
-            chunk = working[last:start].strip()
-            if chunk:
-                pieces.append(chunk)
-        last = start
-    tail = working[last:].strip()
-    if tail:
-        pieces.append(tail)
-    return pieces
-
-
-def _iter_page_lines(page: str) -> Iterator[str]:
-    normalized = _normalize_page_text(page)
-    for raw_line in normalized.split('\n'):
-        for token in _split_tokens(raw_line):
-            yield token
-
-
+DASH_VARIANTS = "\u2010\u2011\u2012\u2013\u2014\u2015\u2212"
+PERSON_PATTERN = re.compile(r"^\s*(\d+)--\s+(.*)$")
+SPOUSE_PATTERN = re.compile(r"^\s*sp-\s+(.*)$", re.IGNORECASE)
+HEADER_PATTERNS = [
+    re.compile(r"^\s*Page\s+\d+\s*$", re.IGNORECASE),
+    re.compile(
+        r"^\s*(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t|tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{4}\s*$",
+        re.IGNORECASE,
+    ),
+    re.compile(r"^\s*(Descendancy|Descendency|Descendants|Genealogy)\b.*$", re.IGNORECASE),
+]
+APPROX_WORD_RE = re.compile(r"\b(?:abt|about|approx|around|circa|ca\.?|c\.?|bef\.?|aft\.?|before|after)\b", re.IGNORECASE)
 
 
 _PERSON_APPROX_COLUMN_CHECKED = False
+
+
+def normalize_text(value: str) -> str:
+    text_value = value
+    for ch in DASH_VARIANTS:
+        text_value = text_value.replace(ch, "-")
+    text_value = re.sub(r"\s+", " ", text_value)
+    return text_value.strip()
+
+
+def _is_header(line: str) -> bool:
+    return any(pattern.match(line) for pattern in HEADER_PATTERNS)
+
+
+def _split_records(line: str) -> List[str]:
+    pattern = re.compile(r"(\d+--|sp-)", re.IGNORECASE)
+    matches = list(pattern.finditer(line))
+    if not matches:
+        return [line]
+    segments: List[str] = []
+    for index, match in enumerate(matches):
+        start = match.start()
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(line)
+        segment = line[start:end].strip()
+        if segment:
+            segments.append(segment)
+    prefix = line[: matches[0].start()].strip()
+    if prefix and segments:
+        segments[0] = (prefix + " " + segments[0]).strip()
+    return segments
+
+
+def normalize_ocr_text(page: str) -> List[str]:
+    text_value = page.replace("\r\n", "\n").replace("\r", "\n")
+    text_value = re.sub(r"(\w)-\n(\w)", r"\1\2", text_value)
+    for ch in DASH_VARIANTS:
+        text_value = text_value.replace(ch, "-")
+    text_value = re.sub(r"(?m)^(\s*sp)\s*[-~]\s*", r"\1- ", text_value, flags=re.IGNORECASE)
+    text_value = re.sub(r"(?m)^(\s*\d+)\s*-+\s*", r"\1-- ", text_value)
+
+    lines: List[str] = []
+    buffer: Optional[str] = None
+
+    for raw_line in text_value.split("\n"):
+        stripped = raw_line.strip()
+        if not stripped:
+            continue
+        if _is_header(stripped):
+            continue
+        collapsed = re.sub(r"\s+", " ", stripped)
+        segments = _split_records(collapsed)
+        for segment in segments:
+            record = segment
+            if PERSON_PATTERN.match(record) or SPOUSE_PATTERN.match(record):
+                if buffer is not None:
+                    lines.append(buffer)
+                buffer = record
+            else:
+                if buffer is None:
+                    buffer = record
+                else:
+                    buffer += " " + record
+    if buffer is not None:
+        lines.append(buffer)
+    return lines
+
+
+def iter_lines(pages: List[str]) -> Iterator[Tuple[int, int, str]]:
+    for page_index, page in enumerate(pages):
+        normalized = normalize_ocr_text(page)
+        for line_index, line in enumerate(normalized):
+            yield page_index, line_index, line
 
 
 def _ensure_person_approx_column(session: Session) -> None:
@@ -128,7 +108,8 @@ def _ensure_person_approx_column(session: Session) -> None:
         return
     try:
         columns = session.exec(text('PRAGMA table_info(person)')).all()
-    except Exception:
+    except Exception as exc:  # pragma: no cover - defensive
+        LOGGER.error("Failed to inspect person table for approx column: %s", exc)
         _PERSON_APPROX_COLUMN_CHECKED = True
         return
     has_column = any(row[1] == 'approx' for row in columns)
@@ -138,277 +119,151 @@ def _ensure_person_approx_column(session: Session) -> None:
             session.commit()
         except OperationalError:
             session.rollback()
-        except Exception:
+            LOGGER.error("Unable to add person.approx column. Run migrations or reset the database.")
+        except Exception as exc:  # pragma: no cover - defensive
             session.rollback()
+            LOGGER.error(
+                "Unexpected error while adding person.approx column: %s. Run migrations or reset the database.",
+                exc,
+            )
     _PERSON_APPROX_COLUMN_CHECKED = True
 
-def normalize_text(value: str) -> str:
-    text = unicodedata.normalize("NFKC", value)
-    text = text.replace("\u00AD", "")
-    text = re.sub(rf"[{DASH_SET}]", "-", text)
-    text = re.sub(r"[ \t]+", " ", text)
-    return text.strip()
+
+def _make_line_key(source_id: int, page_index: int, line_index: int, raw_line: str) -> str:
+    payload = f"{source_id}:{page_index}:{line_index}:{raw_line.strip()}"
+    return hashlib.sha1(payload.encode("utf-8")).hexdigest()
 
 
-def iter_lines(pages: List[str]) -> Iterator[Tuple[int, int, str]]:
-    for page_index, page in enumerate(pages):
-        line_index = 0
-        for token in _iter_page_lines(page):
-            yield page_index, line_index, token
-            line_index += 1
-
-
-def has_approx(value: Optional[str]) -> bool:
+def _build_vital(value: Optional[str]) -> Optional[Dict[str, object]]:
     if not value:
-        return False
-    text = value.strip()
-    if not text:
-        return False
-    if APPROX_TOKEN.search(text):
-        return True
-    normalized = re.sub(rf"[{DASH_SET}]", "-", text)
-    if normalized.endswith("-") or normalized.startswith("-"):
-        return True
-    return False
-
-
-def _normalize_for_key(value: Optional[str]) -> str:
-    if not value:
-        return ""
-    return normalize_text(value).lower()
-
-
-def extract_titles(text: str) -> Tuple[str, Optional[str]]:
-    titles: List[str] = []
-
-    def _collect(match: re.Match[str]) -> str:
-        titles.append(match.group("title"))
-        return " "
-
-    stripped = TITLE_PATTERN.sub(_collect, text)
-    cleaned = normalize_text(stripped)
-    if not titles:
-        return cleaned, None
-    ordered: List[str] = []
-    seen: set[str] = set()
-    for title in titles:
-        if title not in seen:
-            ordered.append(title)
-            seen.add(title)
-    return cleaned, " ".join(ordered)
-
-
-def extract_id_suffix(text: str) -> Tuple[str, Optional[str]]:
-    match = ID_SUFFIX.search(text)
-    if not match:
-        return text, None
-    cleaned = ID_SUFFIX.sub("", text).strip(" ,;:-")
-    return cleaned, match.group(1)
-
-
-def split_display_and_notes(text: str) -> Tuple[str, Optional[str]]:
-    working = text.strip()
-    for separator in NOTE_SEPARATORS:
-        if separator in working:
-            head, tail = working.split(separator, 1)
-            head = head.strip()
-            tail = tail.strip()
-            if tail and tail[0].islower():
-                return head, tail
-    return working, None
-
-
-def _looks_like_vital(content: str) -> bool:
-    if not content:
-        return False
-    if YEAR_TOKEN.search(content):
-        return True
-    if APPROX_TOKEN.search(content):
-        return True
-    if "?" in content:
-        return True
-    if re.search(rf"[{DASH_SET}]", content):
-        left, right = re.split(rf"[{DASH_SET}]", content, maxsplit=1)
-        return bool(left.strip()) or bool(right.strip())
-    return False
-
-
-def _split_vital_content(content: str) -> Tuple[Optional[str], Optional[str], bool, bool]:
-    normalized = re.sub(rf"[{DASH_SET}]", "-", content)
-    if "-" not in normalized:
-        trimmed = normalized.strip()
-        return trimmed or None, None, False, False
-    left, right = normalized.split("-", 1)
-    left = left.strip()
-    right = right.strip()
-    birth_missing = not left
-    death_missing = not right
-    return left or None, right or None, birth_missing, death_missing
-
-
-def _make_vitals(raw_value: str, *, force_approx: bool = False) -> Vitals:
-    cleaned = normalize_text(raw_value)
-    year_match = YEAR_TOKEN.search(cleaned)
-    year = int(year_match.group(1)) if year_match else None
-    approx = force_approx or has_approx(raw_value)
-    return Vitals(raw=cleaned, year=year, approx=approx)
-
-
-def parse_vitals(chunk: str) -> Tuple[str, Dict[str, Optional[Vitals]], Optional[str]]:
-    working = chunk.strip()
-    vitals: Dict[str, Optional[Vitals]] = {"birth": None, "death": None}
-
-    remainder = working
-    while True:
-        match = PAREN_VITAL.search(remainder)
-        if not match:
-            break
-        content = match.group("body").strip()
-        if not _looks_like_vital(content):
-            break
-        birth_raw, death_raw, birth_missing, death_missing = _split_vital_content(content)
-        if birth_raw and vitals["birth"] is None:
-            vitals["birth"] = _make_vitals(birth_raw, force_approx=death_missing)
-        if death_raw and vitals["death"] is None:
-            vitals["death"] = _make_vitals(death_raw, force_approx=birth_missing)
-        remainder = remainder[: match.start()].rstrip()
-
-    normalized = normalize_text(remainder)
-    display, inline_note = split_display_and_notes(normalized)
-    return display, vitals, inline_note
-
-
-def vitals_are_approx(vitals: Dict[str, Optional[Vitals]]) -> bool:
-    return any(value is not None and value.approx for value in vitals.values())
-
-
-def parse_name(text: str, inferred_surname: Optional[str]) -> Tuple[Optional[str], Optional[str], Optional[str]]:
-    work = normalize_text(text)
-    work = re.sub(r"\([^)]*\)$", "", work).strip()
-    raw_tokens = work.replace(",", " , ").split()
-    tokens = [token for token in raw_tokens if token not in {",", "?"}]
-
-    if "," in work:
-        parts = [part.strip() for part in work.split(",", 1)]
-        if parts[0] and len(parts[0].split()) == 1:
-            surname = parts[0]
-            given_tokens = [token for token in parts[1].split() if token not in {",", "?"}]
-            given = " ".join(given_tokens) if given_tokens else None
-            return given, surname, None
-
-    if len(tokens) >= 2:
-        given = " ".join(tokens[:-1])
-        surname = tokens[-1]
-    elif tokens:
-        given = tokens[0]
-        surname = inferred_surname
-    else:
-        given = None
-        surname = inferred_surname
-    return given, surname, None
-
-
-def line_key(
-    source_id: int,
-    parent_path: Tuple[str, ...],
-    text: str,
-    *,
-    generation: Optional[int] = None,
-    birth: Optional[str] = None,
-    death: Optional[str] = None,
-    title: Optional[str] = None,
-    notes: Optional[str] = None,
-    page_index: Optional[int] = None,
-    line_index: Optional[int] = None,
-    extra: Optional[str] = None,
-) -> str:
-    parent = "/".join(_normalize_for_key(part) for part in parent_path)
-    components = [
-        str(source_id),
-        parent,
-        _normalize_for_key(text),
-        _normalize_for_key(extra),
-        str(generation or ""),
-        _normalize_for_key(birth),
-        _normalize_for_key(death),
-        _normalize_for_key(title),
-        _normalize_for_key(notes),
-        f"{page_index if page_index is not None else ''}:{line_index if line_index is not None else ''}",
-    ]
-    return hashlib.sha1("|".join(components).encode("utf-8")).hexdigest()
-
-
-def stack_parent_path(stack: List[ContextNode]) -> Tuple[str, ...]:
-    parts: List[str] = []
-    for node in stack:
-        name = node.person.given or node.person.surname or node.person.name
-        if name:
-            parts.append(name)
-    return tuple(parts)
-
-
-def find_spouse_context(
-    stack: List[ContextNode],
-    current_subject: Optional[ContextNode],
-    column: Optional[int],
-) -> Optional[ContextNode]:
-    candidates: List[ContextNode] = []
-    if current_subject and current_subject in stack:
-        candidates.append(current_subject)
-    for node in reversed(stack):
-        if node is current_subject:
-            continue
-        candidates.append(node)
-    for node in candidates:
-        if column is None:
-            return node
-        if abs(node.content_col - column) <= COLUMN_TOLERANCE:
-            return node
-    return candidates[0] if candidates else None
-
-
-def classify_line(
-    line: str,
-    *,
-    page_index: int,
-    line_index: int,
-) -> Optional[ParsedLine]:
-    raw = line.rstrip()
-    if not raw.strip():
         return None
-    person_match = PERSON_LINE.match(raw)
-    if person_match:
-        body_start = person_match.start("body")
-        generation = int(person_match.group("gen"))
-        body = person_match.group("body")
-        return ParsedLine(
-            kind="person",
-            text=normalize_text(body),
-            raw=raw,
-            page_index=page_index,
-            line_index=line_index,
-            generation=generation,
-            content_col=body_start,
-        )
-    spouse_match = SPOUSE_LINE.match(raw)
-    if spouse_match:
-        body_start = spouse_match.start("body")
-        body = spouse_match.group("body")
-        return ParsedLine(
-            kind="spouse",
-            text=normalize_text(body),
-            raw=raw,
-            page_index=page_index,
-            line_index=line_index,
-            content_col=body_start,
-        )
-    return ParsedLine(
-        kind="note",
-        text=normalize_text(raw),
-        raw=raw,
-        page_index=page_index,
-        line_index=line_index,
-    )
+    cleaned = value.strip()
+    approx = bool(APPROX_WORD_RE.search(cleaned) or '?' in cleaned or cleaned.endswith('-'))
+    year_match = re.search(r"(\d{4})", cleaned)
+    year = int(year_match.group(1)) if year_match else None
+    return {"raw": cleaned, "approx": approx, "year": year}
+
+
+def _split_vitals(vital_text: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
+    if not vital_text:
+        return None, None
+    parts = vital_text.split('-', 1)
+    if len(parts) == 2:
+        birth_part = parts[0].strip() or None
+        death_part = parts[1].strip() or None
+    else:
+        birth_part = vital_text.strip() or None
+        death_part = None
+    return birth_part, death_part
+
+
+def _split_name_components(name_part: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    tokens = name_part.split()
+    if not tokens:
+        return None, None, None
+    surname_idx: Optional[int] = None
+    for idx, token in enumerate(tokens):
+        alpha = re.sub(r"[^A-Za-z]", "", token)
+        if alpha and alpha.upper() == alpha:
+            surname_idx = idx
+    if surname_idx is None:
+        if len(tokens) == 1:
+            token = tokens[0].strip(',')
+            return token or None, None, None
+        surname_idx = len(tokens) - 1
+    surname_token = tokens[surname_idx]
+    surname = surname_token.strip(',')
+    if surname == '?':
+        surname = None
+    given_tokens = tokens[:surname_idx]
+    title_tokens = tokens[surname_idx + 1 :]
+    given = ' '.join(given_tokens).strip() or None
+    title = ' '.join(title_tokens).strip(', ') or None
+    return given, surname, title
+
+
+def _parse_person_entry(text_value: str) -> Dict[str, object]:
+    working = text_value.strip()
+    vital_match = re.search(r"\(([^)]*)\)", working)
+    notes_parts: List[str] = []
+    vital_text: Optional[str] = None
+    if vital_match:
+        vital_text = vital_match.group(1).strip()
+        tail = working[vital_match.end():].strip(' ,;')
+        if tail:
+            notes_parts.append(tail)
+        name_part = working[: vital_match.start()].strip()
+    else:
+        name_part = working
+    id_matches = re.findall(r"-(\d+)", name_part)
+    name_part = re.sub(r"-\d+(?=\b)", "", name_part)
+    name_part = re.sub(r"\s+", " ", name_part).strip(' ,;')
+    if id_matches:
+        notes_parts.extend([f"ID {match}" for match in id_matches])
+    notes = '; '.join(notes_parts) if notes_parts else None
+    given, surname, title = _split_name_components(name_part)
+    birth_part, death_part = _split_vitals(vital_text)
+    birth_info = _build_vital(birth_part)
+    death_info = _build_vital(death_part)
+    approx = bool(birth_info and birth_info.get("approx")) or bool(death_info and death_info.get("approx"))
+    if vital_text:
+        trimmed_vitals = vital_text.strip()
+        if trimmed_vitals.startswith('-') or trimmed_vitals.endswith('-'):
+            approx = True
+    if '?' in name_part or (vital_text and '?' in vital_text):
+        approx = True
+    display_name = name_part or "Unknown"
+    birth_year = birth_info.get("year") if birth_info else None
+    vitals = {"birth": birth_info, "death": death_info}
+    return {
+        "display": display_name,
+        "given": given,
+        "surname": surname,
+        "title": title,
+        "notes": notes,
+        "vitals": vitals,
+        "approx": approx,
+        "birth_year": birth_year,
+    }
+
+
+def _update_person_location(person: Person, page_index: int, line_index: int, session: Session) -> None:
+    changed = False
+    if person.page_index != page_index:
+        person.page_index = page_index
+        changed = True
+    if person.line_index != line_index:
+        person.line_index = line_index
+        changed = True
+    if changed:
+        session.add(person)
+
+
+def _family_line_key(source_id: int, page_index: int, line_index: int, principal_id: int, spouse_id: int) -> str:
+    payload = f"{source_id}:{page_index}:{line_index}:family:{principal_id}:{spouse_id}"
+    return hashlib.sha1(payload.encode("utf-8")).hexdigest()
+
+
+def _child_link_key(source_id: int, page_index: int, line_index: int, child_id: int, family_id: int) -> str:
+    payload = f"{source_id}:{page_index}:{line_index}:child:{family_id}:{child_id}"
+    return hashlib.sha1(payload.encode("utf-8")).hexdigest()
+
+
+class GenerationContext:
+    __slots__ = ("gen", "person", "spouse", "family")
+
+    def __init__(self, gen: int, person: Person) -> None:
+        self.gen = gen
+        self.person = person
+        self.spouse: Optional[Person] = None
+        self.family: Optional[Family] = None
+
+
+@dataclass
+class ParseStats:
+    people_seen: set
+    families_seen: set
+    children_seen: set
 
 
 def parse_ocr_text(
@@ -419,253 +274,154 @@ def parse_ocr_text(
 ) -> Dict[str, int]:
     _ensure_person_approx_column(session)
 
-    generation_stack: List[ContextNode] = []
-    current_subject: Optional[ContextNode] = None
-
-    people_seen: set[int] = set()
-    families_seen: set[int] = set()
-    children_seen: set[int] = set()
+    stats = ParseStats(set(), set(), set())
+    generation_stack: List[GenerationContext] = []
 
     for page_index, line_index, raw_line in iter_lines(pages):
-        parsed = classify_line(raw_line, page_index=page_index, line_index=line_index)
-        if parsed is None:
-            continue
-        if parsed.kind == "note":
-            continue
+        person_match = PERSON_PATTERN.match(raw_line)
+        if person_match:
+            gen = int(person_match.group(1))
+            text_value = person_match.group(2).strip()
 
-        if parsed.kind == "person":
-            while generation_stack and parsed.generation is not None and generation_stack[-1].generation >= parsed.generation:
+            while generation_stack and generation_stack[-1].gen >= gen:
                 generation_stack.pop()
 
             parent_context = generation_stack[-1] if generation_stack else None
-            parent_path = stack_parent_path(generation_stack)
-
-            core_text, vitals, inline_note = parse_vitals(parsed.text)
-            name_without_titles, title = extract_titles(core_text)
-            name_without_ids, id_suffix = extract_id_suffix(name_without_titles)
-            display_name = name_without_ids
-
-            notes_parts: List[str] = []
-            if id_suffix:
-                notes_parts.append(f"ID {id_suffix}")
-            if inline_note:
-                notes_parts.append(inline_note)
-            notes_value = "; ".join(notes_parts) if notes_parts else None
-
-            approx_flag = vitals_are_approx(vitals) or has_approx(parsed.text)
-
-            surname_hint = parent_context.surname_hint if parent_context else None
-            given, surname, _ = parse_name(display_name, surname_hint)
-            if not surname and surname_hint:
-                surname = surname_hint
-
-            generation_value = parsed.generation or ((parent_context.generation + 1) if parent_context else 1)
-
-            person_key = line_key(
-                source_id,
-                parent_path,
-                display_name or parsed.text,
-                generation=generation_value,
-                birth=vitals["birth"].raw if vitals["birth"] else None,
-                death=vitals["death"].raw if vitals["death"] else None,
-                title=title,
-                notes=notes_value,
-                page_index=parsed.page_index,
-                line_index=parsed.line_index,
-                extra="person",
-            )
-
+            data = _parse_person_entry(text_value)
+            line_key = _make_line_key(source_id, page_index, line_index, raw_line)
             person = Person.upsert_from_parse(
                 session,
                 source_id,
-                given,
-                surname,
-                name=display_name or parsed.text,
-                gen=generation_value,
-                title=title,
-                notes=notes_value,
-                vitals={
-                    "birth": vitals["birth"].__dict__ if vitals["birth"] else None,
-                    "death": vitals["death"].__dict__ if vitals["death"] else None,
-                },
-                line_key=person_key,
-                approx=approx_flag,
+                data["given"],
+                data["surname"],
+                name=data["display"],
+                gen=gen,
+                title=data["title"],
+                notes=data["notes"],
+                vitals=data["vitals"],
+                line_key=line_key,
+                approx=data["approx"],
             )
+            _update_person_location(person, page_index, line_index, session)
             if person.id:
-                people_seen.add(person.id)
+                stats.people_seen.add(person.id)
 
-            node = ContextNode(
-                generation=generation_value,
-                person=person,
-                surname_hint=person.surname or surname_hint,
-                content_col=parsed.content_col or 0,
-                family=None,
-                approx=bool(person.approx),
-            )
-            generation_stack.append(node)
-            current_subject = node
+            context = GenerationContext(gen, person)
+            generation_stack.append(context)
 
-            if parent_context and person.id and parent_context.person.id and generation_value == parent_context.generation + 1:
+            if parent_context and gen == parent_context.gen + 1:
                 family = parent_context.family
                 if family is None:
-                    family_label = (
-                        parent_context.person.name
-                        or parent_context.person.given
-                        or parent_context.person.surname
-                        or "parent"
-                    )
-                    family_key = line_key(
+                    family_key = _family_line_key(
                         source_id,
-                        parent_path,
-                        f"{family_label} family",
-                        generation=parent_context.generation,
-                        notes=notes_value,
-                        page_index=parsed.page_index,
-                        line_index=parsed.line_index,
-                        extra="family",
+                        page_index,
+                        line_index,
+                        parent_context.person.id,
+                        parent_context.person.id,
                     )
                     family = Family.ensure_for_single_parent(
                         session,
                         source_id,
                         parent_context.person.id,
                         line_key=family_key,
-                        approx=bool(parent_context.person.approx) or approx_flag,
+                        approx=bool(parent_context.person.approx),
                     )
                     parent_context.family = family
-                if family:
-                    if family.id:
-                        families_seen.add(family.id)
-                    link_key = line_key(
+                if family and family.id:
+                    stats.families_seen.add(family.id)
+                    link_key = _child_link_key(
                         source_id,
-                        parent_path,
-                        display_name or parsed.text,
-                        generation=generation_value,
-                        birth=vitals["birth"].raw if vitals["birth"] else None,
-                        death=vitals["death"].raw if vitals["death"] else None,
-                        title=title,
-                        notes=notes_value,
-                        page_index=parsed.page_index,
-                        line_index=parsed.line_index,
-                        extra="child-link",
+                        page_index,
+                        line_index,
+                        person.id,
+                        family.id,
                     )
                     link = Child.link(
                         session,
                         family.id,
                         person.id,
                         line_key=link_key,
-                        approx=approx_flag,
+                        approx=data["approx"],
                     )
                     if link.id:
-                        children_seen.add(link.id)
-                    if approx_flag and family.approx is not True:
+                        stats.children_seen.add(link.id)
+                    if data["approx"] and family.approx is not True:
                         family.approx = True
                         session.add(family)
             continue
 
-        if parsed.kind == "spouse":
-            target_context = find_spouse_context(generation_stack, current_subject, parsed.content_col)
-            if not target_context or not target_context.person.id:
-                continue
-            parent_path = stack_parent_path(generation_stack)
-
-            core_text, vitals, inline_note = parse_vitals(parsed.text)
-            name_without_titles, title = extract_titles(core_text)
-            name_without_ids, id_suffix = extract_id_suffix(name_without_titles)
-            display_name = name_without_ids
-
-            notes_parts: List[str] = []
-            if id_suffix:
-                notes_parts.append(f"ID {id_suffix}")
-            if inline_note:
-                notes_parts.append(inline_note)
-            notes_value = "; ".join(notes_parts) if notes_parts else None
-
-            approx_flag = vitals_are_approx(vitals) or has_approx(parsed.text)
-
-            given, surname, _ = parse_name(display_name, None)
-            generation_value = target_context.generation
-
-            principal_label = (
-                target_context.person.given
-                or target_context.person.surname
-                or target_context.person.name
-                or "principal"
-            )
-            anchored_path = parent_path + (principal_label,)
-
-            spouse_key = line_key(
-                source_id,
-                anchored_path,
-                display_name or parsed.text,
-                generation=generation_value,
-                birth=vitals["birth"].raw if vitals["birth"] else None,
-                death=vitals["death"].raw if vitals["death"] else None,
-                title=title,
-                notes=notes_value,
-                page_index=parsed.page_index,
-                line_index=parsed.line_index,
-                extra="spouse",
-            )
-
+        spouse_match = SPOUSE_PATTERN.match(raw_line)
+        if spouse_match and generation_stack:
+            context = generation_stack[-1]
+            spouse_text = spouse_match.group(1).strip()
+            data = _parse_person_entry(spouse_text)
+            line_key = _make_line_key(source_id, page_index, line_index, raw_line)
             spouse = Person.upsert_from_parse(
                 session,
                 source_id,
-                given,
-                surname,
-                name=display_name or parsed.text,
-                gen=generation_value,
-                title=title,
-                notes=notes_value,
-                vitals={
-                    "birth": vitals["birth"].__dict__ if vitals["birth"] else None,
-                    "death": vitals["death"].__dict__ if vitals["death"] else None,
-                },
-                line_key=spouse_key,
-                approx=approx_flag,
+                data["given"],
+                data["surname"],
+                name=data["display"],
+                gen=context.gen,
+                title=data["title"],
+                notes=data["notes"],
+                vitals=data["vitals"],
+                line_key=line_key,
+                approx=data["approx"],
             )
+            _update_person_location(spouse, page_index, line_index, session)
             if spouse.id:
-                people_seen.add(spouse.id)
+                stats.people_seen.add(spouse.id)
 
-            family_label = (
-                f"{target_context.person.name or (target_context.person.given or target_context.person.surname or '')} = "
-                f"{display_name or parsed.text}"
-            )
-            family_key = line_key(
-                source_id,
-                parent_path,
-                family_label,
-                generation=generation_value,
-                birth=vitals["birth"].raw if vitals["birth"] else None,
-                death=vitals["death"].raw if vitals["death"] else None,
-                title=title,
-                notes=notes_value,
-                page_index=parsed.page_index,
-                line_index=parsed.line_index,
-                extra="family",
-            )
-            family = Family.upsert_couple(
-                session,
-                source_id,
-                target_context.person.id,
-                spouse.id if spouse.id else None,
-                line_key=family_key,
-                approx=bool(target_context.person.approx) or approx_flag,
-            )
-            target_context.family = family
-            current_subject = target_context
+            approx_flag = bool(context.person.approx) or data["approx"]
+            family = context.family
+            if family and family.is_single_parent:
+                pair = sorted((context.person.id, spouse.id))
+                family.husband_id = pair[0]
+                family.wife_id = pair[1]
+                family.is_single_parent = False
+                if not family.line_key:
+                    family.line_key = _family_line_key(
+                        source_id,
+                        page_index,
+                        line_index,
+                        pair[0],
+                        pair[1],
+                    )
+                if approx_flag and family.approx is not True:
+                    family.approx = True
+                session.add(family)
+            else:
+                family_key = _family_line_key(
+                    source_id,
+                    page_index,
+                    line_index,
+                    context.person.id,
+                    spouse.id,
+                )
+                family = Family.upsert_couple(
+                    session,
+                    source_id,
+                    context.person.id,
+                    spouse.id,
+                    line_key=family_key,
+                    approx=approx_flag,
+                )
+            context.family = family
+            context.spouse = spouse
             if family and family.id:
-                families_seen.add(family.id)
-            if family and approx_flag and family.approx is not True:
+                stats.families_seen.add(family.id)
+            if approx_flag and family and family.approx is not True:
                 family.approx = True
                 session.add(family)
             continue
 
     session.commit()
     return {
-        "people": len(people_seen),
-        "families": len(families_seen),
-        "children": len(children_seen),
+        "people": len(stats.people_seen),
+        "families": len(stats.families_seen),
+        "children": len(stats.children_seen),
     }
 
 
-__all__ = ["parse_ocr_text", "normalize_text"]
+__all__ = ["parse_ocr_text", "normalize_text", "normalize_ocr_text"]
