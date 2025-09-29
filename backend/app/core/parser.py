@@ -69,6 +69,55 @@ class ContextNode:
     approx: bool = False
 
 
+TOKEN_START = re.compile(r'(?:\d+\s*[{}]{{2}}\s+|sp\s*[{}])'.format(DASH_SET, DASH_SET), re.IGNORECASE)
+
+_DEFECTIVE_GEN_PREFIX = re.compile(r'(?i)(?<=\b)[il|](?=\d+\s*[{}]{{2}})'.format(DASH_SET))
+_DEFECTIVE_SPOUSE_PREFIX = re.compile(r'(?i)(sp)\s*[~]')
+_DEFECTIVE_DASH = re.compile(r'[~]')
+_DEFECTIVE_LIKEGEN = re.compile(r'(?i)(?<!\d)([il|]+)(\d+\s*[{}]{{2}})'.format(DASH_SET))
+
+
+def _normalize_page_text(raw: str) -> str:
+    normalized = raw.replace('\r\n', '\n').replace('\r', '\n')
+    normalized = _DEFECTIVE_DASH.sub('-', normalized)
+    normalized = _DEFECTIVE_SPOUSE_PREFIX.sub(r"\1 -", normalized)
+    normalized = _DEFECTIVE_GEN_PREFIX.sub('', normalized)
+    normalized = _DEFECTIVE_LIKEGEN.sub(lambda m: m.group(2), normalized)
+    return normalized
+
+
+
+
+def _split_tokens(segment: str) -> List[str]:
+    working = segment.strip()
+    if not working:
+        return []
+    matches = list(TOKEN_START.finditer(working))
+    if not matches:
+        return [working]
+    pieces: List[str] = []
+    last = 0
+    for match in matches:
+        start = match.start()
+        if start != last:
+            chunk = working[last:start].strip()
+            if chunk:
+                pieces.append(chunk)
+        last = start
+    tail = working[last:].strip()
+    if tail:
+        pieces.append(tail)
+    return pieces
+
+
+def _iter_page_lines(page: str) -> Iterator[str]:
+    normalized = _normalize_page_text(page)
+    for raw_line in normalized.split('\n'):
+        for token in _split_tokens(raw_line):
+            yield token
+
+
+
 
 _PERSON_APPROX_COLUMN_CHECKED = False
 
@@ -103,8 +152,10 @@ def normalize_text(value: str) -> str:
 
 def iter_lines(pages: List[str]) -> Iterator[Tuple[int, int, str]]:
     for page_index, page in enumerate(pages):
-        for line_index, raw in enumerate(page.splitlines()):
-            yield page_index, line_index, raw.rstrip("\r\n")
+        line_index = 0
+        for token in _iter_page_lines(page):
+            yield page_index, line_index, token
+            line_index += 1
 
 
 def has_approx(value: Optional[str]) -> bool:
