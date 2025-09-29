@@ -18,6 +18,9 @@ _engine = create_engine(
 
 def init_db() -> None:
     """Create or update database schema."""
+    # Import models to ensure SQLModel metadata is populated
+    from .core import models  # noqa: F401
+
     SQLModel.metadata.create_all(_engine)
     _apply_migrations()
 
@@ -41,6 +44,14 @@ def _apply_migrations() -> None:
             conn.exec_driver_sql("ALTER TABLE family ADD COLUMN source_id INTEGER")
         if not has_column("family", "is_single_parent"):
             conn.exec_driver_sql("ALTER TABLE family ADD COLUMN is_single_parent INTEGER DEFAULT 0")
+
+        # Introduce approx flags when upgrading older databases
+        if not has_column("person", "approx"):
+            conn.exec_driver_sql("ALTER TABLE person ADD COLUMN approx BOOLEAN")
+        if not has_column("family", "approx"):
+            conn.exec_driver_sql("ALTER TABLE family ADD COLUMN approx BOOLEAN")
+        if not has_column("child", "approx"):
+            conn.exec_driver_sql("ALTER TABLE child ADD COLUMN approx BOOLEAN")
 
         conn.exec_driver_sql(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_person_source_line_key ON person (source_id, line_key) WHERE line_key IS NOT NULL"
