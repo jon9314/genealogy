@@ -1,0 +1,26 @@
+# Development override for docker-compose.yml
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+
+services:
+  backend:
+    build:
+      context: ./backend
+      args:
+        DEV_MODE: "true"
+    ports:
+      - "8001:8000"  # Use 8001 to avoid conflicts
+    volumes:
+      - ./data:/app/data
+      - ./backend/app:/app/app  # Mount source for hot reload
+      - ./backend/tests:/app/tests  # Mount tests
+      - ./backend/alembic:/app/alembic  # Mount migrations
+    environment:
+      - GENEALOGY_DATABASE_PATH=/app/data/app.db
+      - GENEALOGY_DATABASE_ECHO=true  # Enable SQL logging in dev
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    ports:
+      - "8081:80"  # Use 8081 to avoid conflicts
+    volumes:
+      - ./frontend/src:/app/src  # Mount source for development

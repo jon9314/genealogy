@@ -16,6 +16,7 @@ dependencies = [
     "pypdf>=4.0",
     "ged4py==0.5.2",
     "orjson>=3.9",
+    "alembic>=1.13",
 ]
 
 [project.optional-dependencies]

@@ -10,7 +10,9 @@ frontend/dist/
 # Data artifacts
 data/
 !data/.gitkeep
+PDF/
 
 # IDE
 .vscode/
 .DS_Store
+.claude/

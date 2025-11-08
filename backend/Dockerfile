@@ -17,7 +17,13 @@ COPY pyproject.toml ./
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -e .
 
+# Install dev dependencies if DEV_MODE is set
+ARG DEV_MODE=false
+RUN if [ "$DEV_MODE" = "true" ] ; then pip install --no-cache-dir -e .[dev] ; fi
+
 COPY app ./app
+COPY alembic ./alembic
+COPY alembic.ini ./alembic.ini
 
 EXPOSE 8000
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from typing import Iterator
 
+import sqlalchemy
 from sqlmodel import Session, SQLModel, create_engine
 
 from .core.settings import get_settings
@@ -21,47 +22,47 @@ def init_db() -> None:
     # Import models to ensure SQLModel metadata is populated
     from .core import models  # noqa: F401
 
-    SQLModel.metadata.create_all(_engine)
-    _apply_migrations()
+    # Check if database exists and has tables
+    inspector = sqlalchemy.inspect(_engine)
+    existing_tables = inspector.get_table_names()
+
+    if not existing_tables:
+        # Fresh install - create all tables
+        SQLModel.metadata.create_all(_engine)
+    else:
+        # Existing database - run migrations to update schema
+        _run_migrations()
 
 
-def _apply_migrations() -> None:
-    with _engine.connect() as conn:
-        def has_column(table: str, column: str) -> bool:
-            result = conn.exec_driver_sql(f"PRAGMA table_info('{table}')")
-            return any(row[1] == column for row in result.fetchall())
+def _run_migrations() -> None:
+    """Run Alembic migrations to latest version."""
+    try:
+        from alembic import command
+        from alembic.config import Config
+        from pathlib import Path
+        import logging
 
-        if not has_column("person", "line_key"):
-            conn.exec_driver_sql("ALTER TABLE person ADD COLUMN line_key TEXT")
-        if not has_column("person", "normalized_given"):
-            conn.exec_driver_sql("ALTER TABLE person ADD COLUMN normalized_given TEXT")
-        if not has_column("person", "normalized_surname"):
-            conn.exec_driver_sql("ALTER TABLE person ADD COLUMN normalized_surname TEXT")
-        if not has_column("person", "birth_year"):
-            conn.exec_driver_sql("ALTER TABLE person ADD COLUMN birth_year INTEGER")
+        logger = logging.getLogger(__name__)
 
-        if not has_column("family", "source_id"):
-            conn.exec_driver_sql("ALTER TABLE family ADD COLUMN source_id INTEGER")
-        if not has_column("family", "is_single_parent"):
-            conn.exec_driver_sql("ALTER TABLE family ADD COLUMN is_single_parent INTEGER DEFAULT 0")
+        # Get the alembic.ini path
+        backend_dir = Path(__file__).parent.parent
+        alembic_ini = backend_dir / "alembic.ini"
 
-        # Introduce approx flags when upgrading older databases
-        if not has_column("person", "approx"):
-            conn.exec_driver_sql("ALTER TABLE person ADD COLUMN approx BOOLEAN")
-        if not has_column("family", "approx"):
-            conn.exec_driver_sql("ALTER TABLE family ADD COLUMN approx BOOLEAN")
-        if not has_column("child", "approx"):
-            conn.exec_driver_sql("ALTER TABLE child ADD COLUMN approx BOOLEAN")
+        if not alembic_ini.exists():
+            logger.warning(f"Alembic config not found at {alembic_ini}, skipping migrations")
+            return
 
-        conn.exec_driver_sql(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_person_source_line_key ON person (source_id, line_key) WHERE line_key IS NOT NULL"
-        )
-        conn.exec_driver_sql(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_child_family_person ON child (family_id, person_id)"
-        )
-        conn.exec_driver_sql(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_family_source_couple ON family (source_id, husband_id, wife_id)"
-        )
+        alembic_cfg = Config(str(alembic_ini))
+
+        # Run migrations to head
+        command.upgrade(alembic_cfg, "head")
+        logger.info("Database migrations completed successfully")
+    except Exception as exc:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Migration failed: {exc}")
+        # Don't crash the app if migrations fail
+        raise
 
 
 @contextmanager

@@ -22,6 +22,7 @@ def build_ocr_cmd(input_pdf: Path, output_pdf: Path, settings: Settings) -> list
 
     cmd: List[str] = [
         settings.ocrmypdf_executable,
+        "--skip-text",  # Preserve existing text, only OCR image-only pages
         "--rotate-pages",
         "--rotate-pages-threshold",
         "12",
