@@ -3,6 +3,8 @@ import axios from "axios";
 import {
   Family,
   FamilyWithChildren,
+  LineValidation,
+  PageText,
   Person,
   ReparentRequest,
   Source,
@@ -36,6 +38,20 @@ export async function runOCR(sourceId: number): Promise<{ pages: number; ocr_don
 
 export async function getOCRStatus(sourceId: number): Promise<{ pages: number; ocr_done: boolean }> {
   const { data } = await client.get(`/ocr/${sourceId}`);
+  return data;
+}
+
+export async function getOCRText(sourceId: number): Promise<PageText[]> {
+  const { data } = await client.get<PageText[]>(`/ocr/${sourceId}/text`);
+  return data;
+}
+
+export async function updateOCRText(sourceId: number, pageId: number, text: string): Promise<void> {
+  await client.put(`/ocr/${sourceId}/text/${pageId}`, { text });
+}
+
+export async function validateOCRText(sourceId: number, text: string): Promise<LineValidation[]> {
+  const { data } = await client.post<LineValidation[]>(`/ocr/${sourceId}/validate`, { text });
   return data;
 }
 

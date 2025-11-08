@@ -12,10 +12,10 @@ This file tracks potential fixes, improvements, and feature requests for the gen
 - [x] Implement project auto-save (every N minutes, keep last 5 versions) - COMPLETED 2025-11-08
 
 ### Biggest Impact - Accuracy & Error Prevention
-- [ ] OCR text review step before parsing
-  - Allow users to view/edit raw OCR text before parsing
-  - Highlight lines that don't match expected patterns
-  - Show Tesseract confidence scores for low-quality text
+- [x] OCR text review step before parsing - COMPLETED 2025-11-08
+  - ✅ Allow users to view/edit raw OCR text before parsing
+  - ✅ Highlight lines that don't match expected patterns
+  - ⏸️ Show Tesseract confidence scores (deferred - requires pipeline changes)
 - [ ] Improved duplicate detection
   - Add soundex/metaphone matching for phonetically similar names (William vs Bill)
   - Add birth year tolerance (±2 years) for OCR errors
@@ -109,6 +109,7 @@ This file tracks potential fixes, improvements, and feature requests for the gen
 - [x] Expose source page/line in person detail view (2025-11-08)
 - [x] Add animated progress indicator for OCR processing (2025-11-08)
 - [x] Implement project auto-save (every 5 minutes, keeps last 5 versions) (2025-11-08)
+- [x] OCR text review and editing before parsing with pattern validation (2025-11-08)
 
 ## Notes
 

@@ -8,9 +8,15 @@ export interface Source {
 
 export interface PageText {
   id: number;
-  source_id: number;
   page_index: number;
   text: string;
+}
+
+export interface LineValidation {
+  line_number: number;
+  text: string;
+  is_valid: boolean;
+  pattern_type: string | null;
 }
 
 export interface Person {

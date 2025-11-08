@@ -4,10 +4,11 @@ const links = [
   { to: "/", label: "Overview" },
   { to: "/upload", label: "Upload" },
   { to: "/ocr", label: "OCR" },
+  { to: "/review-ocr", label: "Review OCR" },
   { to: "/parse", label: "Parse" },
   { to: "/table", label: "Table" },
   { to: "/graph", label: "Graph" },
-  { to: "/review", label: "Review" },
+  { to: "/review", label: "Review Duplicates" },
   { to: "/export", label: "Export" },
 ];
 

@@ -11,6 +11,7 @@ import Home from "./routes/Home";
 import OCRPage from "./routes/OCR";
 import ParsePage from "./routes/Parse";
 import ReviewPage from "./routes/Review";
+import ReviewOCRPage from "./routes/ReviewOCR";
 import TablePage from "./routes/Table";
 import Upload from "./routes/Upload";
 
@@ -61,6 +62,7 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/upload" element={<Upload />} />
             <Route path="/ocr" element={<OCRPage />} />
+            <Route path="/review-ocr" element={<ReviewOCRPage />} />
             <Route path="/parse" element={<ParsePage />} />
             <Route path="/table" element={<TablePage />} />
             <Route path="/graph" element={<GraphPage />} />
