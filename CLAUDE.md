@@ -13,6 +13,9 @@ This is a local-first genealogy workstation for importing scanned descendancy PD
 - OCR: OCRmyPDF + Tesseract
 - Containerization: Docker Compose
 
+**Task Tracking:**
+- See `TODO.md` for pending fixes, improvements, and feature requests that need to be addressed
+
 ## Common Commands
 
 ### Development (Local)
