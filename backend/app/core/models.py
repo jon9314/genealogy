@@ -32,6 +32,8 @@ class PageTextBase(SQLModel):
     source_id: int = Field(foreign_key="source.id")
     page_index: int
     text: str
+    confidence: Optional[float] = None  # Average confidence for page (0-100)
+    line_confidences: Optional[str] = None  # JSON array of per-line confidence scores
 
 
 class PageText(PageTextBase, table=True):

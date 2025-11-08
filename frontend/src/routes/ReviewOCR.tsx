@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { getOCRText, listSources, updateOCRText, validateOCRText } from "../lib/api";
-import type { LineValidation, PageText, Source } from "../lib/types";
+import type { LineConfidence, LineValidation, PageText, Source } from "../lib/types";
 
 export default function ReviewOCRPage() {
   const [sources, setSources] = useState<Source[]>([]);
@@ -196,6 +196,45 @@ export default function ReviewOCRPage() {
             <div className="card" style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
               <h3 style={{ margin: 0 }}>Pattern Validation</h3>
 
+              {/* Confidence Score Display */}
+              {pages.length > 0 && currentPageIndex < pages.length && pages[currentPageIndex].confidence != null && (
+                <div style={{
+                  padding: "0.75rem",
+                  backgroundColor: "rgba(79, 156, 255, 0.1)",
+                  borderRadius: "6px",
+                  fontSize: "0.9rem"
+                }}>
+                  <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>
+                    OCR Confidence Score
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <div style={{
+                      width: "100%",
+                      height: "8px",
+                      backgroundColor: "#e5e7eb",
+                      borderRadius: "4px",
+                      overflow: "hidden"
+                    }}>
+                      <div style={{
+                        height: "100%",
+                        width: `${pages[currentPageIndex].confidence}%`,
+                        backgroundColor: pages[currentPageIndex].confidence! >= 80 ? "#22c55e" :
+                          pages[currentPageIndex].confidence! >= 60 ? "#f59e0b" : "#ef4444",
+                        transition: "width 0.3s ease"
+                      }} />
+                    </div>
+                    <div style={{ fontWeight: 600, minWidth: "3rem", textAlign: "right" }}>
+                      {pages[currentPageIndex].confidence!.toFixed(1)}%
+                    </div>
+                  </div>
+                  <div style={{ fontSize: "0.75rem", opacity: 0.7, marginTop: "0.25rem" }}>
+                    {pages[currentPageIndex].confidence! >= 80 ? "High confidence" :
+                     pages[currentPageIndex].confidence! >= 60 ? "Medium confidence - review recommended" :
+                     "Low confidence - manual review strongly recommended"}
+                  </div>
+                </div>
+              )}
+
               <div style={{ display: "flex", gap: "1rem", fontSize: "0.9rem" }}>
                 <div style={{ color: "#22c55e" }}>
                   ✓ Valid: {validLines.length}
@@ -260,6 +299,46 @@ export default function ReviewOCRPage() {
                   </div>
                 </details>
               )}
+
+              {/* Low Confidence Lines */}
+              {pages.length > 0 && currentPageIndex < pages.length && pages[currentPageIndex].line_confidences && (() => {
+                try {
+                  const lineConfs: LineConfidence[] = JSON.parse(pages[currentPageIndex].line_confidences!);
+                  const lowConfLines = lineConfs.filter(lc => lc.confidence < 70);
+
+                  if (lowConfLines.length === 0) return null;
+
+                  return (
+                    <details>
+                      <summary style={{ cursor: "pointer", fontWeight: 600, marginBottom: "0.5rem", color: "#f59e0b" }}>
+                        ⚠ Low Confidence Lines ({lowConfLines.length})
+                      </summary>
+                      <div style={{ maxHeight: "300px", overflowY: "auto", fontSize: "0.85rem" }}>
+                        {lowConfLines.map((lc, idx) => (
+                          <div
+                            key={idx}
+                            style={{
+                              padding: "0.5rem",
+                              marginBottom: "0.25rem",
+                              backgroundColor: "rgba(245, 158, 11, 0.1)",
+                              borderLeft: "3px solid #f59e0b",
+                              borderRadius: "4px",
+                              fontFamily: "monospace",
+                            }}
+                          >
+                            <div style={{ color: "#f59e0b", fontSize: "0.75rem", marginBottom: "0.25rem" }}>
+                              Line {lc.line} • Confidence: {lc.confidence.toFixed(1)}%
+                            </div>
+                            <div>{lc.text}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  );
+                } catch {
+                  return null;
+                }
+              })()}
             </div>
           </div>
         </>

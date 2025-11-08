@@ -10,6 +10,14 @@ export interface PageText {
   id: number;
   page_index: number;
   text: string;
+  confidence?: number | null;
+  line_confidences?: string | null;
+}
+
+export interface LineConfidence {
+  line: number;
+  text: string;
+  confidence: number;
 }
 
 export interface LineValidation {

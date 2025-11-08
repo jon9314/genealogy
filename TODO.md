@@ -15,7 +15,7 @@ This file tracks potential fixes, improvements, and feature requests for the gen
 - [x] OCR text review step before parsing - COMPLETED 2025-11-08
   - ✅ Allow users to view/edit raw OCR text before parsing
   - ✅ Highlight lines that don't match expected patterns
-  - ⏸️ Show Tesseract confidence scores (deferred - requires pipeline changes)
+  - ✅ Show Tesseract confidence scores (COMPLETED 2025-11-08 - optional feature)
 - [ ] Improved duplicate detection
   - Add soundex/metaphone matching for phonetically similar names (William vs Bill)
   - Add birth year tolerance (±2 years) for OCR errors
@@ -110,6 +110,7 @@ This file tracks potential fixes, improvements, and feature requests for the gen
 - [x] Add animated progress indicator for OCR processing (2025-11-08)
 - [x] Implement project auto-save (every 5 minutes, keeps last 5 versions) (2025-11-08)
 - [x] OCR text review and editing before parsing with pattern validation (2025-11-08)
+- [x] Tesseract confidence scores with optional extraction and display (2025-11-08)
 
 ## Notes
 

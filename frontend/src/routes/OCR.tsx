@@ -8,6 +8,7 @@ export default function OCRPage() {
   const [sources, setSources] = useState<Source[]>([]);
   const [status, setStatus] = useState<Record<number, { pages: number; ocr_done: boolean }>>({});
   const [busy, setBusy] = useState<number[]>([]);
+  const [includeConfidence, setIncludeConfidence] = useState(false);
 
   useEffect(() => {
     refresh();
@@ -27,7 +28,7 @@ export default function OCRPage() {
   const handleOCR = async (id: number) => {
     setBusy((prev) => [...prev, id]);
     try {
-      await runOCR(id);
+      await runOCR(id, includeConfidence);
       await refresh();
     } finally {
       setBusy((prev) => prev.filter((value) => value !== id));
@@ -39,6 +40,17 @@ export default function OCRPage() {
       <div className="card">
         <h2>OCR pipeline</h2>
         <p>Runs OCRmyPDF with deskew, rotate, and optimize 3. Results are stored in ./data/ocr.</p>
+        <div style={{ marginTop: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <input
+            type="checkbox"
+            id="include-confidence"
+            checked={includeConfidence}
+            onChange={(e) => setIncludeConfidence(e.target.checked)}
+          />
+          <label htmlFor="include-confidence" style={{ cursor: "pointer" }}>
+            Include confidence scores (slower, uses Tesseract for detailed analysis)
+          </label>
+        </div>
       </div>
       <div className="grid two">
         {sources.map((source) => (

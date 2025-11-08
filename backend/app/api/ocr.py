@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from ..core.models import PageText, Source
-from ..core.ocr_runner import OCRProcessError, run_ocr
+from ..core.ocr_runner import OCRProcessError, extract_confidence_scores, run_ocr
 from ..core.parser import PERSON_PATTERN, SPOUSE_PATTERN
 from ..core.settings import get_settings
 from ..db import get_session
@@ -36,7 +36,11 @@ class LineValidation(BaseModel):
 
 
 @router.post("/{source_id}")
-def run_ocr_for_source(source_id: int, session: Session = Depends(get_session)) -> JSONResponse:
+def run_ocr_for_source(
+    source_id: int,
+    include_confidence: bool = Body(False, embed=True),
+    session: Session = Depends(get_session)
+) -> JSONResponse:
     source = session.get(Source, source_id)
     if not source:
         raise HTTPException(status_code=404, detail="Source not found")
@@ -52,12 +56,28 @@ def run_ocr_for_source(source_id: int, session: Session = Depends(get_session)) 
     except OCRProcessError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
+    # Optionally extract confidence scores
+    confidences: List[tuple[float, str]] | None = None
+    if include_confidence:
+        try:
+            confidences = extract_confidence_scores(pdf_input)
+        except OCRProcessError as exc:
+            # Log error but don't fail the entire OCR if confidence extraction fails
+            import logging
+            logging.getLogger(__name__).error("Failed to extract confidence scores: %s", exc)
+
     existing = session.exec(select(PageText).where(PageText.source_id == source_id)).all()
     for record in existing:
         session.delete(record)
 
     for index, text in enumerate(texts):
         page = PageText(source_id=source_id, page_index=index, text=text)
+
+        # Add confidence data if available
+        if confidences and index < len(confidences):
+            page.confidence = confidences[index][0]
+            page.line_confidences = confidences[index][1]
+
         session.add(page)
 
     source.pages = len(texts)

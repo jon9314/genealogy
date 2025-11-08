@@ -31,8 +31,8 @@ export async function deleteSource(id: number): Promise<void> {
   await client.delete(`/files/${id}`);
 }
 
-export async function runOCR(sourceId: number): Promise<{ pages: number; ocr_done: boolean }> {
-  const { data } = await client.post(`/ocr/${sourceId}`);
+export async function runOCR(sourceId: number, includeConfidence: boolean = false): Promise<{ pages: number; ocr_done: boolean }> {
+  const { data } = await client.post(`/ocr/${sourceId}`, { include_confidence: includeConfidence });
   return data;
 }
 
