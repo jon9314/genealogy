@@ -5,11 +5,11 @@ This file tracks potential fixes, improvements, and feature requests for the gen
 ## High Priority (Quick Wins & Biggest Impact)
 
 ### Quick Wins - Easy to Implement
-- [ ] Show unparsed lines to user instead of silently logging (parser.py:289)
-- [ ] Add parse summary before committing ("Found 47 people, 12 families, 3 unparsed lines")
-- [ ] Expose source page/line in person detail view (already tracked in `page_index`/`line_index`)
-- [ ] Add progress bar/indicator for OCR processing
-- [ ] Implement project auto-save (every N minutes, keep last 5 versions)
+- [x] Show unparsed lines to user instead of silently logging (parser.py:289) - COMPLETED 2025-11-08
+- [x] Add parse summary before committing ("Found 47 people, 12 families, 3 unparsed lines") - COMPLETED 2025-11-08
+- [x] Expose source page/line in person detail view (already tracked in `page_index`/`line_index`) - COMPLETED 2025-11-08
+- [x] Add progress bar/indicator for OCR processing - COMPLETED 2025-11-08
+- [x] Implement project auto-save (every N minutes, keep last 5 versions) - COMPLETED 2025-11-08
 
 ### Biggest Impact - Accuracy & Error Prevention
 - [ ] OCR text review step before parsing
@@ -104,11 +104,16 @@ This file tracks potential fixes, improvements, and feature requests for the gen
 - [x] Fix OCR to handle PDFs with existing text using `--skip-text` flag (2025-11-08)
 - [x] Add Docker dev environment with test dependencies (2025-11-08)
 - [x] Create CLAUDE.md documentation (2025-11-08)
+- [x] Show unparsed lines to user instead of silently logging (2025-11-08)
+- [x] Add parse summary with user-friendly messages (2025-11-08)
+- [x] Expose source page/line in person detail view (2025-11-08)
+- [x] Add animated progress indicator for OCR processing (2025-11-08)
+- [x] Implement project auto-save (every 5 minutes, keeps last 5 versions) (2025-11-08)
 
 ## Notes
 
 ### Parser Behavior (Current)
-- Silently skips unparseable lines (logs only) - see parser.py:289
+- Collects and displays unparseable lines to users in Parse UI (parser.py:291)
 - Uses Levenshtein distance ≤2 for name matching
 - Detects "abt", "circa", "?", trailing "-" for approximate data
 - Handles multiple records per line by splitting on `\d+--` and `sp-` patterns

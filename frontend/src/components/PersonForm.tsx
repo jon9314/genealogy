@@ -40,6 +40,19 @@ export default function PersonForm({ person, onSubmit, onClose }: Props) {
   return (
     <div className="card" style={{ minWidth: "360px" }}>
       <form onSubmit={handleSubmit} className="grid" style={{ gap: "0.75rem" }}>
+        {person.source_id != null && (person.page_index != null || person.line_index != null) && (
+          <div style={{
+            padding: "0.5rem",
+            backgroundColor: "#f3f4f6",
+            borderRadius: "4px",
+            fontSize: "0.85rem",
+            color: "#6b7280"
+          }}>
+            <strong>Source:</strong> ID {person.source_id}
+            {person.page_index != null && ` • Page ${person.page_index + 1}`}
+            {person.line_index != null && ` • Line ${person.line_index + 1}`}
+          </div>
+        )}
         <div>
           <label>Name</label>
           <input value={form.name ?? ""} onChange={(e) => handleChange("name", e.target.value)} required />

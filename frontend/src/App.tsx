@@ -1,8 +1,10 @@
+import { useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import Sidebar from "./components/Sidebar";
 import Toolbar from "./components/Toolbar";
 import { UndoProvider } from "./hooks/useUndoRedo";
+import { autosaveProject } from "./lib/api";
 import ExportPage from "./routes/Export";
 import GraphPage from "./routes/Graph";
 import Home from "./routes/Home";
@@ -12,13 +14,49 @@ import ReviewPage from "./routes/Review";
 import TablePage from "./routes/Table";
 import Upload from "./routes/Upload";
 
+const AUTOSAVE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+
 export default function App() {
+  const [lastAutosave, setLastAutosave] = useState<Date | null>(null);
+
+  useEffect(() => {
+    const performAutosave = async () => {
+      try {
+        await autosaveProject();
+        setLastAutosave(new Date());
+      } catch (error) {
+        console.error("Autosave failed:", error);
+      }
+    };
+
+    // Run autosave every 5 minutes
+    const interval = setInterval(performAutosave, AUTOSAVE_INTERVAL_MS);
+
+    // Cleanup on unmount
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <UndoProvider>
       <div className="layout">
         <Sidebar />
         <main className="main-content">
           <Toolbar />
+          {lastAutosave && (
+            <div style={{
+              position: "fixed",
+              bottom: "1rem",
+              right: "1rem",
+              padding: "0.5rem 0.75rem",
+              backgroundColor: "rgba(0, 0, 0, 0.8)",
+              borderRadius: "6px",
+              fontSize: "0.75rem",
+              color: "#22c55e",
+              zIndex: 1000
+            }}>
+              ✓ Auto-saved at {lastAutosave.toLocaleTimeString()}
+            </div>
+          )}
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/upload" element={<Upload />} />

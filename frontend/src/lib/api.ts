@@ -87,6 +87,11 @@ export async function saveProject(filename?: string): Promise<string> {
   return data.filename;
 }
 
+export async function autosaveProject(): Promise<string> {
+  const { data } = await client.post<{ status: string; filename: string }>("/project/autosave");
+  return data.filename;
+}
+
 export async function openProject(filename: string): Promise<void> {
   await client.post("/project/open", { filename });
 }

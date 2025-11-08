@@ -53,19 +53,21 @@ export default function ParsePage() {
               </div>
               {result && (
                 <div style={{ fontSize: "0.9rem", opacity: 0.85 }}>
-                  <div>People: {result.people}</div>
-                  <div>Families: {result.families}</div>
+                  <div style={{ fontWeight: 600, color: "#22c55e", marginBottom: "0.5rem" }}>
+                    ✓ Found {result.people} {result.people === 1 ? "person" : "people"}, {result.families} {result.families === 1 ? "family" : "families"}
+                    {result.flagged_lines.length > 0 && `, ${result.flagged_lines.length} unparsed ${result.flagged_lines.length === 1 ? "line" : "lines"}`}
+                  </div>
                   {result.flagged_lines.length > 0 ? (
                     <details>
-                      <summary>Flagged lines ({result.flagged_lines.length})</summary>
-                      <ul>
-                        {result.flagged_lines.map((item) => (
-                          <li key={item}>{item}</li>
+                      <summary style={{ cursor: "pointer", color: "#f59e0b" }}>⚠ View unparsed lines ({result.flagged_lines.length})</summary>
+                      <ul style={{ marginTop: "0.5rem", paddingLeft: "1.25rem" }}>
+                        {result.flagged_lines.map((item, idx) => (
+                          <li key={idx} style={{ fontFamily: "monospace", fontSize: "0.85rem" }}>{item}</li>
                         ))}
                       </ul>
                     </details>
                   ) : (
-                    <div>No flagged lines.</div>
+                    <div style={{ color: "#22c55e" }}>All lines parsed successfully.</div>
                   )}
                 </div>
               )}

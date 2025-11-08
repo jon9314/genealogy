@@ -266,6 +266,7 @@ class ParseStats:
     people_seen: set
     families_seen: set
     children_seen: set
+    flagged_lines: list
 
 
 def parse_ocr_text(
@@ -276,7 +277,7 @@ def parse_ocr_text(
 ) -> Dict[str, int]:
     _ensure_person_approx_column(session)
 
-    stats = ParseStats(set(), set(), set())
+    stats = ParseStats(set(), set(), set(), [])
     generation_stack: List[GenerationContext] = []
 
     for page_index, line_index, raw_line in iter_lines(pages):
@@ -287,6 +288,7 @@ def parse_ocr_text(
             normalized_gen = re.sub(r'\D', '', normalized_gen)
             if not normalized_gen:
                 LOGGER.debug('Skipping line with unparseable generation token: %s', raw_line)
+                stats.flagged_lines.append(raw_line)
                 continue
             gen = int(normalized_gen)
             text_value = person_match.group(2).strip()
@@ -429,6 +431,7 @@ def parse_ocr_text(
         "people": len(stats.people_seen),
         "families": len(stats.families_seen),
         "children": len(stats.children_seen),
+        "flagged_lines": stats.flagged_lines,
     }
 
 

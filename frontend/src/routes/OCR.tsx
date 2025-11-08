@@ -46,7 +46,31 @@ export default function OCRPage() {
             <FileCard source={source} onRunOCR={handleOCR} busy={busy.includes(source.id)} />
             <div className="card" style={{ fontSize: "0.9rem", opacity: 0.85 }}>
               <div>Pages: {status[source.id]?.pages ?? source.pages}</div>
-              <div>OCR status: {status[source.id]?.ocr_done ? "Complete" : "Pending"}</div>
+              {busy.includes(source.id) ? (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#3b82f6" }}>
+                  <div style={{
+                    width: "100%",
+                    height: "4px",
+                    backgroundColor: "#e5e7eb",
+                    borderRadius: "2px",
+                    overflow: "hidden",
+                    position: "relative"
+                  }}>
+                    <div style={{
+                      height: "100%",
+                      backgroundColor: "#3b82f6",
+                      animation: "progress 1.5s ease-in-out infinite",
+                      width: "40%",
+                      position: "absolute"
+                    }} />
+                  </div>
+                  <div style={{ whiteSpace: "nowrap", fontWeight: 500 }}>Processing OCR...</div>
+                </div>
+              ) : (
+                <div style={{ color: status[source.id]?.ocr_done ? "#22c55e" : "#6b7280" }}>
+                  OCR status: {status[source.id]?.ocr_done ? "✓ Complete" : "Pending"}
+                </div>
+              )}
             </div>
           </div>
         ))}

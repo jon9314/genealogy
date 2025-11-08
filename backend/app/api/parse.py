@@ -43,6 +43,7 @@ def parse_source(source_id: int, session: Session = Depends(get_session)) -> JSO
             "people": stats.get("people", 0),
             "families": stats.get("families", 0),
             "children": stats.get("children", 0),
+            "flagged_lines": stats.get("flagged_lines", []),
         }
     )
 

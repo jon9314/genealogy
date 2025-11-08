@@ -115,3 +115,12 @@ input, select, textarea {
   font-size: 0.75rem;
   font-weight: 600;
 }
+
+@keyframes progress {
+  0% {
+    left: -40%;
+  }
+  100% {
+    left: 100%;
+  }
+}

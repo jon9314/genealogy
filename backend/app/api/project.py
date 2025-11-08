@@ -56,6 +56,34 @@ def save_project(
     return JSONResponse({"status": "saved", "filename": filename})
 
 
+@router.post("/autosave")
+def autosave_project(session: Session = Depends(get_session)) -> JSONResponse:
+    settings = get_settings()
+    data = ProjectPayload(
+        exported_at=datetime.utcnow(),
+        sources=list(session.exec(select(Source)).all()),
+        pages=list(session.exec(select(PageText)).all()),
+        persons=list(session.exec(select(Person)).all()),
+        families=list(session.exec(select(Family)).all()),
+        children=list(session.exec(select(Child)).all()),
+    )
+    filename = _timestamped_filename("autosave", "json")
+    target = settings.project_dir / filename
+    with target.open("w", encoding="utf-8") as fp:
+        json.dump(data.model_dump(), fp, default=str, indent=2)
+
+    # Cleanup old autosaves, keep only last 5
+    autosave_files = sorted(
+        [f for f in settings.project_dir.glob("autosave-*.json")],
+        key=lambda f: f.stat().st_mtime,
+        reverse=True
+    )
+    for old_file in autosave_files[5:]:
+        old_file.unlink()
+
+    return JSONResponse({"status": "autosaved", "filename": filename})
+
+
 @router.post("/open")
 def open_project(payload: ProjectOpenRequest, session: Session = Depends(get_session)) -> JSONResponse:
     settings = get_settings()
