@@ -144,119 +144,230 @@ def validate_gedcom(gedcom: str) -> list[str]:
 
 
 def import_gedcom(session: Session, gedcom_data: str) -> dict:
-    from ged4py import GedcomReader
+    """Import GEDCOM file and merge with existing data.
 
-    reader = GedcomReader(gedcom_data)
+    Returns dict with import statistics and rollback ID for undo functionality.
+    Raises ValueError for invalid GEDCOM data.
+    """
+    from io import StringIO
+    from ged4py import GedcomReader
+    from .models import Source
+
+    # Validation
+    if not gedcom_data or not gedcom_data.strip():
+        raise ValueError("GEDCOM data is empty")
+
+    if "0 HEAD" not in gedcom_data:
+        raise ValueError("Invalid GEDCOM file: missing header")
+
+    try:
+        # Fix: GedcomReader requires file-like object, not string
+        reader = GedcomReader(StringIO(gedcom_data))
+    except Exception as e:
+        raise ValueError(f"Failed to parse GEDCOM file: {str(e)}")
+
+    # Create a synthetic source for imported records
+    import_source = Source(
+        filename="GEDCOM Import",
+        filepath=f"import_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.ged",
+        ocr_done=True,
+        parse_done=True
+    )
+    session.add(import_source)
+    session.flush()
+
     imported_persons = []
     imported_families = []
+    imported_children = []
+    errors = []
 
-    for record in reader.records0():
-        if record.tag == "INDI":
-            name_record = record.sub_record("NAME")
-            name = name_record.value if name_record else "Unknown"
-            given = None
-            surname = None
-            if name_record and "/" in name_record.value:
-                parts = name_record.value.split("/")
-                given = parts[0].strip() if parts[0].strip() else None
-                surname = parts[1].strip() if parts[1].strip() else None
+    # Fix: Build xref to database ID mapping (critical fix)
+    xref_to_person_id: dict[str, int] = {}
+    xref_to_family_id: dict[str, int] = {}
 
-            birth_record = record.sub_record("BIRT")
-            birth_date = birth_record.sub_record("DATE").value if birth_record and birth_record.sub_record("DATE") else None
+    try:
+        # First pass: import all individuals and build xref mapping
+        for record in reader.records0("INDI"):
+            try:
+                xref = record.xref
 
-            death_record = record.sub_record("DEAT")
-            death_date = death_record.sub_record("DATE").value if death_record and death_record.sub_record("DATE") else None
+                name_record = record.sub_record("NAME")
+                name = name_record.value if name_record else "Unknown"
+                given = None
+                surname = None
+                if name_record and "/" in name_record.value:
+                    parts = name_record.value.split("/")
+                    given = parts[0].strip() if parts[0].strip() else None
+                    surname = parts[1].strip() if len(parts) > 1 and parts[1].strip() else None
 
-            sex_record = record.sub_record("SEX")
-            sex = sex_record.value if sex_record else None
+                birth_record = record.sub_record("BIRT")
+                birth_date = birth_record.sub_record("DATE").value if birth_record and birth_record.sub_record("DATE") else None
 
-            title_record = record.sub_record("TITL")
-            title = title_record.value if title_record else None
+                death_record = record.sub_record("DEAT")
+                death_date = death_record.sub_record("DATE").value if death_record and death_record.sub_record("DATE") else None
 
-            notes_records = record.sub_records("NOTE")
-            notes = "\n".join([n.value for n in notes_records]) if notes_records else None
+                sex_record = record.sub_record("SEX")
+                sex = sex_record.value if sex_record and sex_record.value in ("M", "F") else None
 
-            # Simple merging logic: check for existing person by name and birth date
-            existing_person = session.exec(
-                select(Person).where(
-                    Person.name == name,
-                    Person.birth == birth_date
-                )
-            ).first()
+                title_record = record.sub_record("TITL")
+                title = title_record.value if title_record else None
 
-            if existing_person:
-                # Update existing person
-                if not existing_person.given and given:
-                    existing_person.given = given
-                if not existing_person.surname and surname:
-                    existing_person.surname = surname
-                if not existing_person.death and death_date:
-                    existing_person.death = death_date
-                if not existing_person.sex and sex:
-                    existing_person.sex = sex
-                if not existing_person.title and title:
-                    existing_person.title = title
-                if not existing_person.notes and notes:
-                    existing_person.notes = notes
-                session.add(existing_person)
-                imported_persons.append({"id": existing_person.id, "action": "updated"})
-            else:
-                # Create new person
-                new_person = Person(
-                    name=name,
-                    given=given,
-                    surname=surname,
-                    birth=birth_date,
-                    death=death_date,
-                    sex=sex,
-                    title=title,
-                    notes=notes,
-                    gen=0, # Default generation, can be updated later
-                )
-                session.add(new_person)
-                session.flush() # To get the ID
-                imported_persons.append({"id": new_person.id, "action": "created"})
+                notes_records = record.sub_records("NOTE")
+                notes = "\n".join([n.value for n in notes_records]) if notes_records else None
 
-        elif record.tag == "FAM":
-            husband_xref = record.sub_record("HUSB").value if record.sub_record("HUSB") else None
-            wife_xref = record.sub_record("WIFE").value if record.sub_record("WIFE") else None
-            
-            # Assuming xrefs are like @I123@
-            husband_id = int(husband_xref[2:-1]) if husband_xref else None
-            wife_id = int(wife_xref[2:-1]) if wife_xref else None
-
-            # Simple merging logic for families
-            existing_family = None
-            if husband_id and wife_id:
-                existing_family = session.exec(
-                    select(Family).where(
-                        (Family.husband_id == husband_id) & (Family.wife_id == wife_id) |
-                        (Family.husband_id == wife_id) & (Family.wife_id == husband_id)
+                # Improved merging logic: check for existing person by name and birth date
+                existing_person = session.exec(
+                    select(Person).where(
+                        Person.name == name,
+                        Person.birth == birth_date
                     )
                 ).first()
-            elif husband_id:
-                existing_family = session.exec(
-                    select(Family).where(Family.husband_id == husband_id, Family.is_single_parent == True)
-                ).first()
-            elif wife_id:
-                existing_family = session.exec(
-                    select(Family).where(Family.wife_id == wife_id, Family.is_single_parent == True)
-                ).first()
 
-            if existing_family:
-                imported_families.append({"id": existing_family.id, "action": "updated"})
-            else:
-                new_family = Family(
-                    husband_id=husband_id,
-                    wife_id=wife_id,
-                    is_single_parent=not (husband_id and wife_id)
-                )
-                session.add(new_family)
-                session.flush()
-                imported_families.append({"id": new_family.id, "action": "created"})
+                if existing_person:
+                    # Update existing person (only fill in missing fields)
+                    updated = False
+                    if not existing_person.given and given:
+                        existing_person.given = given
+                        updated = True
+                    if not existing_person.surname and surname:
+                        existing_person.surname = surname
+                        updated = True
+                    if not existing_person.death and death_date:
+                        existing_person.death = death_date
+                        updated = True
+                    if not existing_person.sex and sex:
+                        existing_person.sex = sex
+                        updated = True
+                    if not existing_person.title and title:
+                        existing_person.title = title
+                        updated = True
+                    if notes:
+                        existing_person.notes = (existing_person.notes or "") + "\n" + notes if existing_person.notes else notes
+                        updated = True
 
-            # TODO: Handle children linking
+                    if updated:
+                        session.add(existing_person)
+                    xref_to_person_id[xref] = existing_person.id
+                    imported_persons.append({"id": existing_person.id, "action": "updated", "name": name})
+                else:
+                    # Create new person
+                    new_person = Person(
+                        name=name,
+                        given=given,
+                        surname=surname,
+                        birth=birth_date,
+                        death=death_date,
+                        sex=sex,
+                        title=title,
+                        notes=notes,
+                        gen=0,  # Default generation
+                        source_id=import_source.id
+                    )
+                    session.add(new_person)
+                    session.flush()
+                    xref_to_person_id[xref] = new_person.id
+                    imported_persons.append({"id": new_person.id, "action": "created", "name": name})
+            except Exception as e:
+                errors.append(f"Error importing person {record.xref}: {str(e)}")
+                continue
 
-    session.commit()
-    # TODO: Implement proper rollback mechanism if user doesn't like the result
-    return {"persons": imported_persons, "families": imported_families}
+        # Second pass: import families with proper ID mapping
+        for record in reader.records0("FAM"):
+            try:
+                xref = record.xref
+
+                husband_xref = record.sub_record("HUSB").value if record.sub_record("HUSB") else None
+                wife_xref = record.sub_record("WIFE").value if record.sub_record("WIFE") else None
+
+                # Fix: Use xref mapping instead of assuming xref = database ID
+                husband_id = xref_to_person_id.get(husband_xref) if husband_xref else None
+                wife_id = xref_to_person_id.get(wife_xref) if wife_xref else None
+
+                # Skip family if neither parent exists in mapping
+                if not husband_id and not wife_id:
+                    errors.append(f"Family {xref}: No valid parents found")
+                    continue
+
+                # Check for existing family
+                existing_family = None
+                if husband_id and wife_id:
+                    existing_family = session.exec(
+                        select(Family).where(
+                            ((Family.husband_id == husband_id) & (Family.wife_id == wife_id)) |
+                            ((Family.husband_id == wife_id) & (Family.wife_id == husband_id))
+                        )
+                    ).first()
+                elif husband_id:
+                    existing_family = session.exec(
+                        select(Family).where(
+                            Family.husband_id == husband_id,
+                            Family.is_single_parent == True
+                        )
+                    ).first()
+                elif wife_id:
+                    existing_family = session.exec(
+                        select(Family).where(
+                            Family.wife_id == wife_id,
+                            Family.is_single_parent == True
+                        )
+                    ).first()
+
+                if existing_family:
+                    xref_to_family_id[xref] = existing_family.id
+                    imported_families.append({"id": existing_family.id, "action": "updated"})
+                else:
+                    new_family = Family(
+                        husband_id=husband_id,
+                        wife_id=wife_id,
+                        source_id=import_source.id,
+                        is_single_parent=not (husband_id and wife_id)
+                    )
+                    session.add(new_family)
+                    session.flush()
+                    xref_to_family_id[xref] = new_family.id
+                    imported_families.append({"id": new_family.id, "action": "created"})
+
+                # Fix: Handle children linking
+                child_records = record.sub_records("CHIL")
+                for idx, child_record in enumerate(child_records):
+                    child_xref = child_record.value
+                    child_id = xref_to_person_id.get(child_xref)
+                    if child_id:
+                        # Check if child link already exists
+                        existing_child = session.exec(
+                            select(Child).where(
+                                Child.family_id == xref_to_family_id[xref],
+                                Child.person_id == child_id
+                            )
+                        ).first()
+
+                        if not existing_child:
+                            new_child = Child(
+                                family_id=xref_to_family_id[xref],
+                                person_id=child_id,
+                                order_index=idx
+                            )
+                            session.add(new_child)
+                            imported_children.append({"family_id": xref_to_family_id[xref], "person_id": child_id})
+                    else:
+                        errors.append(f"Family {xref}: Child {child_xref} not found")
+
+            except Exception as e:
+                errors.append(f"Error importing family {record.xref}: {str(e)}")
+                continue
+
+        # Commit the import
+        session.commit()
+
+        return {
+            "persons": imported_persons,
+            "families": imported_families,
+            "children": imported_children,
+            "source_id": import_source.id,
+            "errors": errors
+        }
+
+    except Exception as e:
+        # Rollback on error
+        session.rollback()
+        raise ValueError(f"Import failed: {str(e)}")
