@@ -27,13 +27,13 @@ This file tracks potential fixes, improvements, and feature requests for the gen
 ## Medium Priority
 
 ### Parser & OCR Enhancements
-- [ ] Parser pattern flexibility
-  - Support alternative generation formats (`1. Name` or `I. Name`)
-  - Handle edge cases like `(b. 1850)` vs `(1850-)` vs `(1850-living)`
-- [ ] Better error handling
-  - Collect and display unparseable lines to users
-  - Provide explanatory error messages for OCR failures
-  - Suggest fixes (missing Tesseract language pack, corrupted PDF, etc.)
+- [x] Parser pattern flexibility - COMPLETED 2025-11-08
+  - ✅ Support alternative generation formats (`1. Name` or `I. Name`)
+  - ✅ Handle edge cases like `(b. 1850)` vs `(1850-)` vs `(1850-living)`
+- [x] Better error handling - COMPLETED 2025-11-08
+  - ✅ Collect and display unparseable lines to users (completed previously)
+  - ✅ Provide explanatory error messages for OCR failures
+  - ✅ Suggest fixes (missing Tesseract language pack, corrupted PDF, etc.)
 
 ### Workflow & UX Improvements
 - [ ] Visual stepper/progress indicator: Upload → OCR → Review → Parse → Edit → Export
@@ -113,16 +113,28 @@ This file tracks potential fixes, improvements, and feature requests for the gen
 - [x] Tesseract confidence scores with optional extraction and display (2025-11-08)
 - [x] Improved duplicate detection with phonetic matching and birth year tolerance (2025-11-08)
 - [x] Data validation warnings for impossible dates, age gaps, and duplicate names (2025-11-08)
+- [x] Parser pattern flexibility supporting alternative generation formats (1. Name, I. Name) (2025-11-08)
+- [x] Enhanced vital date parsing for edge cases (b. 1850, d. 1920, 1850-living) (2025-11-08)
+- [x] Improved OCR error messages with helpful suggestions and troubleshooting (2025-11-08)
 
 ## Notes
 
 ### Parser Behavior (Current)
-- Collects and displays unparseable lines to users in Parse UI (parser.py:291)
+- Collects and displays unparseable lines to users in Parse UI (parser.py:335)
+- Supports multiple generation formats:
+  - Standard: `II-- Name` (double dash format)
+  - Numeric: `1. Name` (period format)
+  - Roman: `I. Name` (Roman numeral with period)
+- Handles multiple vital date formats:
+  - Standard: `(1850-1920)` or `(1850-)`
+  - Birth only: `(b. 1850)` or `(b 1850)`
+  - Death only: `(d. 1920)` or `(d 1920)`
+  - Still living: `(1850-living)` or `(1850-liv)`
 - Uses Levenshtein distance ≤2 for name matching
 - Uses metaphone phonetic matching for similar-sounding names (William/Bill, Stephen/Steven)
 - Allows ±2 year tolerance for birth year matching (handles OCR errors)
 - Detects "abt", "circa", "?", trailing "-" for approximate data
-- Handles multiple records per line by splitting on `\d+--` and `sp-` patterns
+- Handles multiple records per line by splitting on generation markers and `sp-` patterns
 
 ### Technical Debt
 - Fix 2 failing tests in `test_models_upsert.py` (incorrect function signatures)

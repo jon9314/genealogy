@@ -20,6 +20,74 @@ LOGGER = logging.getLogger(__name__)
 class OCRProcessError(RuntimeError):
     """Raised when the OCR subprocess exits unsuccessfully."""
 
+    def __init__(self, message: str, suggestion: Optional[str] = None):
+        super().__init__(message)
+        self.suggestion = suggestion
+
+
+def _analyze_ocr_error(returncode: int, stderr: str) -> Tuple[str, Optional[str]]:
+    """
+    Analyze OCR error and provide helpful suggestions.
+
+    Returns:
+        Tuple of (error_message, suggestion)
+    """
+    stderr_lower = stderr.lower()
+
+    # Missing language pack
+    if "tesseract" in stderr_lower and ("language" in stderr_lower or "traineddata" in stderr_lower):
+        return (
+            "OCR failed: Missing Tesseract language pack",
+            "Install the required Tesseract language pack. For English: 'brew install tesseract-lang' (macOS) or 'apt-get install tesseract-ocr-eng' (Ubuntu). For other languages, check tesseract documentation."
+        )
+
+    # Corrupted or invalid PDF
+    if "pdf" in stderr_lower and ("corrupt" in stderr_lower or "invalid" in stderr_lower or "damaged" in stderr_lower):
+        return (
+            "OCR failed: PDF file appears corrupted or invalid",
+            "Try opening the PDF in a viewer to verify it's valid. If corrupted, try re-downloading the file or using a PDF repair tool."
+        )
+
+    # Encrypted PDF
+    if "encrypt" in stderr_lower or "password" in stderr_lower or "permission" in stderr_lower:
+        return (
+            "OCR failed: PDF is encrypted or password-protected",
+            "Remove encryption from the PDF first using a PDF tool like 'qpdf --decrypt input.pdf output.pdf' or Adobe Acrobat."
+        )
+
+    # Out of memory
+    if "memory" in stderr_lower or "oom" in stderr_lower:
+        return (
+            "OCR failed: Insufficient memory",
+            "The PDF may be too large or high-resolution. Try reducing the PDF resolution or processing fewer pages at once."
+        )
+
+    # File not found / permission denied
+    if "no such file" in stderr_lower or "not found" in stderr_lower:
+        return (
+            "OCR failed: Input file not found",
+            "Verify that the file path is correct and the file exists on disk."
+        )
+
+    if "permission denied" in stderr_lower:
+        return (
+            "OCR failed: Permission denied",
+            "Check file permissions and ensure the application has read/write access to the file and output directory."
+        )
+
+    # Timeout
+    if returncode == -9 or "killed" in stderr_lower:
+        return (
+            "OCR failed: Process was killed (possibly timeout or out of memory)",
+            "The file may be too large. Try increasing the timeout in settings or processing a smaller file."
+        )
+
+    # Generic error with exit code
+    return (
+        f"OCR failed with exit code {returncode}",
+        "Check the application logs for more details. Common issues: missing dependencies, corrupted PDF, or unsupported PDF format."
+    )
+
 
 def build_ocr_cmd(input_pdf: Path, output_pdf: Path, settings: Settings) -> list[str]:
     """Construct the ocrmypdf command with optional tuning flags."""
@@ -69,7 +137,9 @@ def run_ocr(source_pdf: Path, output_pdf: Path) -> list[str]:
         LOGGER.error(
             "OCR command timed out after %s seconds", settings.ocrmypdf_timeout_secs
         )
-        raise OCRProcessError("OCR command timed out") from exc
+        message = f"OCR command timed out after {settings.ocrmypdf_timeout_secs} seconds"
+        suggestion = "The PDF may be too large or complex. Try: 1) Increase the timeout in settings, 2) Split the PDF into smaller files, or 3) Reduce the PDF resolution."
+        raise OCRProcessError(f"{message}\n\nSuggestion: {suggestion}", suggestion) from exc
 
     if result.returncode != 0:  # pragma: no cover - subprocess failure
         stderr = (result.stderr or "").strip()
@@ -79,9 +149,14 @@ def run_ocr(source_pdf: Path, output_pdf: Path) -> list[str]:
             result.returncode,
             tail or "no stderr output",
         )
-        raise OCRProcessError(
-            f"OCR failed (exit {result.returncode}): {tail or 'see logs'}"
-        )
+
+        # Analyze error and provide helpful suggestion
+        error_msg, suggestion = _analyze_ocr_error(result.returncode, stderr)
+        full_message = error_msg
+        if suggestion:
+            full_message = f"{error_msg}\n\nSuggestion: {suggestion}"
+
+        raise OCRProcessError(full_message, suggestion)
 
     reader = PdfReader(str(output_pdf))
     texts: list[str] = []
@@ -105,7 +180,18 @@ def extract_confidence_scores(source_pdf: Path) -> List[Tuple[float, str]]:
         images = convert_from_path(str(source_pdf))
     except Exception as exc:
         LOGGER.error("Failed to convert PDF to images: %s", exc)
-        raise OCRProcessError(f"Failed to convert PDF to images: {exc}") from exc
+        error_str = str(exc).lower()
+
+        # Provide helpful suggestions based on error type
+        if "poppler" in error_str or "pdftoppm" in error_str:
+            suggestion = "Install poppler-utils: 'brew install poppler' (macOS) or 'apt-get install poppler-utils' (Ubuntu)"
+        elif "memory" in error_str:
+            suggestion = "PDF may be too large. Try reducing PDF resolution or splitting into smaller files."
+        else:
+            suggestion = "Ensure pdf2image and poppler-utils are installed correctly."
+
+        message = f"Failed to convert PDF to images: {exc}\n\nSuggestion: {suggestion}"
+        raise OCRProcessError(message, suggestion) from exc
 
     results: List[Tuple[float, str]] = []
 

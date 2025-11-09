@@ -14,7 +14,10 @@ from .models import Child, Family, Person
 LOGGER = logging.getLogger(__name__)
 
 DASH_VARIANTS = "\u2010\u2011\u2012\u2013\u2014\u2015\u2212"
+# Primary pattern: II-- Name (double dash format)
 PERSON_PATTERN = re.compile(r"^\s*(?:[xX×✗✘]+\s*){0,2}\s*([0-9Il|O]{1,2})\s*--\s+(.*)$")
+# Alternative pattern: 1. Name or I. Name (period format)
+PERSON_PATTERN_ALT = re.compile(r"^\s*(?:[xX×✗✘]+\s*){0,2}\s*([IVXivx0-9]{1,3})\.\s+(.*)$")
 SPOUSE_PATTERN = re.compile(r"^\s*sp-\s+(.*)$", re.IGNORECASE)
 HEADER_PATTERNS = [
     re.compile(r"^\s*Page\s+\d+\s*$", re.IGNORECASE),
@@ -27,6 +30,27 @@ HEADER_PATTERNS = [
 GEN_CHAR_MAP = str.maketrans({'I': '1', 'l': '1', '|': '1', 'O': '0', 'o': '0'})
 
 APPROX_WORD_RE = re.compile(r"\b(?:abt|about|approx|around|circa|ca\.?|c\.?|bef\.?|aft\.?|before|after)\b", re.IGNORECASE)
+
+# Roman numeral to integer conversion
+ROMAN_MAP = {'I': 1, 'V': 5, 'X': 10, 'L': 50, 'C': 100, 'D': 500, 'M': 1000}
+
+
+def _roman_to_int(s: str) -> Optional[int]:
+    """Convert Roman numeral string to integer. Returns None if invalid."""
+    s = s.upper()
+    if not s or not all(c in ROMAN_MAP for c in s):
+        return None
+
+    total = 0
+    prev_value = 0
+    for char in reversed(s):
+        value = ROMAN_MAP[char]
+        if value < prev_value:
+            total -= value
+        else:
+            total += value
+        prev_value = value
+    return total
 
 
 _PERSON_APPROX_COLUMN_CHECKED = False
@@ -45,7 +69,8 @@ def _is_header(line: str) -> bool:
 
 
 def _split_records(line: str) -> List[str]:
-    pattern = re.compile(r"(\d+--|sp-)", re.IGNORECASE)
+    # Match both formats: "II--" or "1." or "sp-"
+    pattern = re.compile(r"(\d+--|[IVXivx0-9]{1,3}\.|sp-)", re.IGNORECASE)
     matches = list(pattern.finditer(line))
     if not matches:
         return [line]
@@ -83,7 +108,7 @@ def normalize_ocr_text(page: str) -> List[str]:
         segments = _split_records(collapsed)
         for segment in segments:
             record = segment
-            if PERSON_PATTERN.match(record) or SPOUSE_PATTERN.match(record):
+            if PERSON_PATTERN.match(record) or PERSON_PATTERN_ALT.match(record) or SPOUSE_PATTERN.match(record):
                 if buffer is not None:
                     lines.append(buffer)
                 buffer = record
@@ -149,12 +174,31 @@ def _build_vital(value: Optional[str]) -> Optional[Dict[str, object]]:
 def _split_vitals(vital_text: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
     if not vital_text:
         return None, None
-    parts = vital_text.split('-', 1)
+
+    cleaned = vital_text.strip()
+
+    # Handle "b. 1850" format (birth only)
+    birth_match = re.match(r'^b\.?\s*(.+)$', cleaned, re.IGNORECASE)
+    if birth_match:
+        return birth_match.group(1).strip() or None, None
+
+    # Handle "d. 1920" format (death only)
+    death_match = re.match(r'^d\.?\s*(.+)$', cleaned, re.IGNORECASE)
+    if death_match:
+        return None, death_match.group(1).strip() or None
+
+    # Handle "1850-living" or "1850-liv" (still alive)
+    living_match = re.match(r'^(.+?)-\s*liv(?:ing)?\.?$', cleaned, re.IGNORECASE)
+    if living_match:
+        return living_match.group(1).strip() or None, None
+
+    # Standard "1850-1920" format
+    parts = cleaned.split('-', 1)
     if len(parts) == 2:
         birth_part = parts[0].strip() or None
         death_part = parts[1].strip() or None
     else:
-        birth_part = vital_text.strip() or None
+        birth_part = cleaned or None
         death_part = None
     return birth_part, death_part
 
@@ -282,16 +326,35 @@ def parse_ocr_text(
 
     for page_index, line_index, raw_line in iter_lines(pages):
         person_match = PERSON_PATTERN.match(raw_line)
-        if person_match:
-            raw_gen = person_match.group(1).strip()
-            normalized_gen = raw_gen.translate(GEN_CHAR_MAP)
-            normalized_gen = re.sub(r'\D', '', normalized_gen)
-            if not normalized_gen:
+        alt_match = PERSON_PATTERN_ALT.match(raw_line) if not person_match else None
+
+        if person_match or alt_match:
+            match = person_match or alt_match
+            raw_gen = match.group(1).strip()
+
+            # Try to parse generation number
+            gen = None
+            if alt_match:
+                # Alternative format (1. or I.)
+                # Try as integer first
+                if raw_gen.isdigit():
+                    gen = int(raw_gen)
+                else:
+                    # Try as Roman numeral
+                    gen = _roman_to_int(raw_gen)
+            else:
+                # Standard format (II--)
+                normalized_gen = raw_gen.translate(GEN_CHAR_MAP)
+                normalized_gen = re.sub(r'\D', '', normalized_gen)
+                if normalized_gen:
+                    gen = int(normalized_gen)
+
+            if gen is None:
                 LOGGER.debug('Skipping line with unparseable generation token: %s', raw_line)
                 stats.flagged_lines.append(raw_line)
                 continue
-            gen = int(normalized_gen)
-            text_value = person_match.group(2).strip()
+
+            text_value = match.group(2).strip()
 
             while generation_stack and generation_stack[-1].gen >= gen:
                 generation_stack.pop()

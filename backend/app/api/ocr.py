@@ -11,7 +11,7 @@ from sqlmodel import Session, select
 
 from ..core.models import PageText, Source
 from ..core.ocr_runner import OCRProcessError, extract_confidence_scores, run_ocr
-from ..core.parser import PERSON_PATTERN, SPOUSE_PATTERN
+from ..core.parser import PERSON_PATTERN, PERSON_PATTERN_ALT, SPOUSE_PATTERN
 from ..core.settings import get_settings
 from ..db import get_session
 
@@ -154,7 +154,7 @@ def validate_ocr_text(
         if not line:
             continue
 
-        is_person = bool(PERSON_PATTERN.match(line))
+        is_person = bool(PERSON_PATTERN.match(line)) or bool(PERSON_PATTERN_ALT.match(line))
         is_spouse = bool(SPOUSE_PATTERN.match(line))
 
         validations.append(LineValidation(
