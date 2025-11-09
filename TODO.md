@@ -19,10 +19,10 @@ This file tracks potential fixes, improvements, and feature requests for the gen
 - [x] Improved duplicate detection - COMPLETED 2025-11-08
   - ✅ Add soundex/metaphone matching for phonetically similar names (William vs Bill)
   - ✅ Add birth year tolerance (±2 years) for OCR errors
-- [ ] Data validation warnings
-  - Check for impossible dates (child born before parent, death before birth)
-  - Flag suspiciously large age gaps between spouses or generations
-  - Warn about duplicate names within the same family
+- [x] Data validation warnings - COMPLETED 2025-11-08
+  - ✅ Check for impossible dates (child born before parent, death before birth)
+  - ✅ Flag suspiciously large age gaps between spouses or generations
+  - ✅ Warn about duplicate names within the same family
 
 ## Medium Priority
 
@@ -112,6 +112,7 @@ This file tracks potential fixes, improvements, and feature requests for the gen
 - [x] OCR text review and editing before parsing with pattern validation (2025-11-08)
 - [x] Tesseract confidence scores with optional extraction and display (2025-11-08)
 - [x] Improved duplicate detection with phonetic matching and birth year tolerance (2025-11-08)
+- [x] Data validation warnings for impossible dates, age gaps, and duplicate names (2025-11-08)
 
 ## Notes
 

@@ -9,6 +9,7 @@ const links = [
   { to: "/table", label: "Table" },
   { to: "/graph", label: "Graph" },
   { to: "/review", label: "Review Duplicates" },
+  { to: "/warnings", label: "Validation Warnings" },
   { to: "/export", label: "Export" },
 ];
 

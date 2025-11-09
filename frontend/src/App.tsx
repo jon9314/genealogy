@@ -14,6 +14,7 @@ import ReviewPage from "./routes/Review";
 import ReviewOCRPage from "./routes/ReviewOCR";
 import TablePage from "./routes/Table";
 import Upload from "./routes/Upload";
+import WarningsPage from "./routes/Warnings";
 
 const AUTOSAVE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -67,6 +68,7 @@ export default function App() {
             <Route path="/table" element={<TablePage />} />
             <Route path="/graph" element={<GraphPage />} />
             <Route path="/review" element={<ReviewPage />} />
+            <Route path="/warnings" element={<WarningsPage />} />
             <Route path="/export" element={<ExportPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

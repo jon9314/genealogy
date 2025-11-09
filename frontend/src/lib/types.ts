@@ -93,3 +93,11 @@ export interface ApiError {
 export interface ProjectDescriptor {
   filename: string;
 }
+
+export interface ValidationWarning {
+  severity: "error" | "warning" | "info";
+  category: "dates" | "age_gaps" | "duplicates";
+  message: string;
+  person_ids: number[];
+  family_id: number | null;
+}

@@ -9,6 +9,7 @@ import {
   ReparentRequest,
   Source,
   UpdatePersonPayload,
+  ValidationWarning,
 } from "./types";
 
 const client = axios.create({
@@ -110,6 +111,11 @@ export async function autosaveProject(): Promise<string> {
 
 export async function openProject(filename: string): Promise<void> {
   await client.post("/project/open", { filename });
+}
+
+export async function getValidationWarnings(): Promise<ValidationWarning[]> {
+  const { data } = await client.get<ValidationWarning[]>("/validation/warnings");
+  return data;
 }
 
 export default client;
