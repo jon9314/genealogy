@@ -4,7 +4,11 @@ import json
 import logging
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Callable
+import uuid
+import queue
+import threading
+import time
 
 from pdf2image import convert_from_path
 from PIL import Image
@@ -16,6 +20,11 @@ from .settings import Settings, get_settings
 
 LOGGER = logging.getLogger(__name__)
 
+# In-memory job store and queue. In a production environment, you would use a
+# more robust solution like Redis or a database.
+OCR_JOBS: Dict[str, Dict] = {}
+OCR_JOB_QUEUE: queue.Queue = queue.Queue()
+NOTIFICATIONS: List[Dict] = []
 
 class OCRProcessError(RuntimeError):
     """Raised when the OCR subprocess exits unsuccessfully."""
@@ -23,6 +32,50 @@ class OCRProcessError(RuntimeError):
     def __init__(self, message: str, suggestion: Optional[str] = None):
         super().__init__(message)
         self.suggestion = suggestion
+
+
+def ocr_worker():
+    """Worker thread to process OCR jobs from the queue."""
+    while True:
+        job_id, source_pdf, output_pdf = OCR_JOB_QUEUE.get()
+        LOGGER.info(f"Starting OCR job {job_id} for {source_pdf.name}")
+        
+        settings = get_settings()
+        cmd = build_ocr_cmd(source_pdf, output_pdf, settings)
+        stderr_path = output_pdf.parent / f"{job_id}.stderr"
+
+        with open(stderr_path, "w") as stderr_file:
+            process = subprocess.Popen(cmd, stderr=stderr_file)
+
+        OCR_JOBS[job_id] = {
+            "process": process,
+            "stderr_path": stderr_path,
+            "output_pdf": output_pdf,
+            "status": "running",
+            "source_name": source_pdf.name,
+        }
+
+        process.wait()
+
+        if process.returncode == 0:
+            OCR_JOBS[job_id]["status"] = "completed"
+            message = f"OCR for {source_pdf.name} completed successfully."
+            NOTIFICATIONS.append({"id": str(uuid.uuid4()), "message": message, "type": "success"})
+        else:
+            OCR_JOBS[job_id]["status"] = "failed"
+            with open(stderr_path, "r") as f:
+                stderr = f.read()
+            error_msg, suggestion = _analyze_ocr_error(process.returncode, stderr)
+            OCR_JOBS[job_id]["error"] = {"message": error_msg, "suggestion": suggestion}
+            message = f"OCR for {source_pdf.name} failed: {error_msg}"
+            NOTIFICATIONS.append({"id": str(uuid.uuid4()), "message": message, "type": "error"})
+
+        LOGGER.info(f"Finished OCR job {job_id}")
+        OCR_JOB_QUEUE.task_done()
+
+
+# Start the OCR worker thread
+threading.Thread(target=ocr_worker, daemon=True).start()
 
 
 def _analyze_ocr_error(returncode: int, stderr: str) -> Tuple[str, Optional[str]]:
@@ -105,65 +158,86 @@ def build_ocr_cmd(input_pdf: Path, output_pdf: Path, settings: Settings) -> list
         "pdf",
     ]
 
-    if settings.remove_background:
+    if settings.ocrmypdf_remove_background:
         cmd.append("--remove-background")
 
-    fast_web_view_mb = settings.fast_web_view_mb
+    fast_web_view_mb = settings.ocrmypdf_fast_web_view_mb
     if isinstance(fast_web_view_mb, int) and fast_web_view_mb > 0:
         cmd.extend(["--fast-web-view", str(fast_web_view_mb)])
 
-    if settings.language:
-        cmd.extend(["-l", settings.language])
+    if settings.ocrmypdf_language:
+        cmd.extend(["-l", settings.ocrmypdf_language])
 
     cmd.extend([str(input_pdf), str(output_pdf)])
     return cmd
 
 
-def run_ocr(source_pdf: Path, output_pdf: Path) -> list[str]:
-    """Run ocrmypdf and return extracted text per page."""
+def queue_ocr_job(source_pdf: Path, output_pdf: Path) -> str:
+    """Queue an OCR job and return a job ID."""
+    job_id = str(uuid.uuid4())
+    OCR_JOB_QUEUE.put((job_id, source_pdf, output_pdf))
+    OCR_JOBS[job_id] = {"status": "queued"}
+    return job_id
 
-    settings = get_settings()
-    output_pdf.parent.mkdir(parents=True, exist_ok=True)
-    cmd = build_ocr_cmd(source_pdf, output_pdf, settings)
 
-    try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=settings.ocrmypdf_timeout_secs,
-        )
-    except subprocess.TimeoutExpired as exc:  # pragma: no cover - subprocess timeout
-        LOGGER.error(
-            "OCR command timed out after %s seconds", settings.ocrmypdf_timeout_secs
-        )
-        message = f"OCR command timed out after {settings.ocrmypdf_timeout_secs} seconds"
-        suggestion = "The PDF may be too large or complex. Try: 1) Increase the timeout in settings, 2) Split the PDF into smaller files, or 3) Reduce the PDF resolution."
-        raise OCRProcessError(f"{message}\n\nSuggestion: {suggestion}", suggestion) from exc
+def get_ocr_job_status(job_id: str) -> Dict:
+    """Get the status of an OCR job."""
+    job = OCR_JOBS.get(job_id)
+    if not job:
+        raise ValueError("Job not found")
 
-    if result.returncode != 0:  # pragma: no cover - subprocess failure
-        stderr = (result.stderr or "").strip()
-        tail = "\n".join(stderr.splitlines()[-5:]) if stderr else ""
-        LOGGER.error(
-            "OCR command failed (exit %s): %s",
-            result.returncode,
-            tail or "no stderr output",
-        )
+    if job["status"] == "running":
+        progress = {}
+        with open(job["stderr_path"], "r") as f:
+            lines = f.readlines()
+            if lines:
+                last_line = lines[-1].strip()
+                # Example tqdm output:   2%| | 1/50 [00:01<01:02,  1.23it/s]
+                parts = last_line.split()
+                if len(parts) > 2 and "%" in parts[0]:
+                    try:
+                        percent = int(parts[0].replace("%", ""))
+                        page_progress = parts[2].split("/")
+                        current_page = int(page_progress[0])
+                        total_pages = int(page_progress[1].replace("[", ""))
+                        progress = {
+                            "percent": percent,
+                            "current_page": current_page,
+                            "total_pages": total_pages,
+                        }
+                    except (ValueError, IndexError):
+                        pass # Ignore parsing errors
+        job["progress"] = progress
 
-        # Analyze error and provide helpful suggestion
-        error_msg, suggestion = _analyze_ocr_error(result.returncode, stderr)
-        full_message = error_msg
-        if suggestion:
-            full_message = f"{error_msg}\n\nSuggestion: {suggestion}"
+    return job
 
-        raise OCRProcessError(full_message, suggestion)
 
-    reader = PdfReader(str(output_pdf))
+def get_ocr_result(job_id: str) -> list[str]:
+    """Get the result of a completed OCR job."""
+    job = OCR_JOBS.get(job_id)
+    if not job:
+        raise ValueError("Job not found")
+
+    if job["status"] != "completed":
+        raise ValueError("Job is not completed")
+
+    reader = PdfReader(str(job["output_pdf"]))
     texts: list[str] = []
     for page in reader.pages:
         text = page.extract_text() or ""
         texts.append(text)
     return texts
+
+
+def get_notifications() -> List[Dict]:
+    """Get all notifications."""
+    return NOTIFICATIONS
+
+
+def clear_notification(notification_id: str):
+    """Clear a specific notification."""
+    global NOTIFICATIONS
+    NOTIFICATIONS = [n for n in NOTIFICATIONS if n["id"] != notification_id]
 
 
 def extract_confidence_scores(source_pdf: Path) -> List[Tuple[float, str]]:
@@ -198,7 +272,7 @@ def extract_confidence_scores(source_pdf: Path) -> List[Tuple[float, str]]:
     for page_num, image in enumerate(images):
         try:
             # Run Tesseract with detailed data output
-            lang = settings.language or "eng"
+            lang = settings.ocrmypdf_language or "eng"
             data = pytesseract.image_to_data(
                 image,
                 lang=lang,

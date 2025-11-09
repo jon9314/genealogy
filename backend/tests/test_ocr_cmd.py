@@ -20,11 +20,11 @@ def test_build_ocr_cmd_defaults(tmp_path):
     assert cmd[-2:] == [str(input_pdf), str(output_pdf)]
     assert "--fast-web-view" in cmd
     flag_index = cmd.index("--fast-web-view")
-    assert cmd[flag_index + 1] == str(settings.fast_web_view_mb)
+    assert cmd[flag_index + 1] == str(settings.ocrmypdf_fast_web_view_mb)
 
 
 def test_build_ocr_cmd_without_fast_web_view(tmp_path):
-    settings = Settings(fast_web_view_mb=0)
+    settings = Settings(ocrmypdf_fast_web_view_mb=0)
     input_pdf, output_pdf = _dummy_paths(tmp_path)
 
     cmd = build_ocr_cmd(input_pdf, output_pdf, settings)
@@ -33,7 +33,7 @@ def test_build_ocr_cmd_without_fast_web_view(tmp_path):
 
 
 def test_build_ocr_cmd_with_background_removal(tmp_path):
-    settings = Settings(remove_background=True)
+    settings = Settings(ocrmypdf_remove_background=True)
     input_pdf, output_pdf = _dummy_paths(tmp_path)
 
     cmd = build_ocr_cmd(input_pdf, output_pdf, settings)
