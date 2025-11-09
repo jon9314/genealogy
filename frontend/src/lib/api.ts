@@ -56,6 +56,18 @@ export async function validateOCRText(sourceId: number, text: string): Promise<L
   return data;
 }
 
+export async function parseSourcePreview(sourceId: number): Promise<{
+  people: number;
+  families: number;
+  children: number;
+  flagged_lines: string[];
+  sample_people: any[];
+  sample_families: any[];
+}> {
+  const { data } = await client.post(`/parse/${sourceId}/preview`);
+  return data;
+}
+
 export async function parseSource(sourceId: number): Promise<{ people: number; families: number; flagged_lines: string[] }> {
   const { data } = await client.post(`/parse/${sourceId}`);
   return data;

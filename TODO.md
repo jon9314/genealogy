@@ -38,7 +38,7 @@ This file tracks potential fixes, improvements, and feature requests for the gen
 ### Workflow & UX Improvements
 - [x] Visual stepper/progress indicator: Upload → OCR → Review → Parse → Edit → Export - COMPLETED 2025-11-08
 - [x] Show processing stage for each source in file list - COMPLETED 2025-11-08
-- [ ] Parse preview/confirmation dialog before committing to database
+- [x] Parse preview/confirmation dialog before committing to database - COMPLETED 2025-11-08
 - [x] Batch operations - COMPLETED 2025-11-08
   - ✅ Select multiple sources and OCR/delete all at once
   - ✅ Bulk edit features (e.g., set sex for all "John" to M)
@@ -122,6 +122,7 @@ This file tracks potential fixes, improvements, and feature requests for the gen
 - [x] Enhanced undo/redo with history viewer and checkpoint feature (2025-11-08)
 - [x] Bulk edit features for setting fields on multiple people (2025-11-08)
 - [x] Mass duplicate resolution with auto-resolve functionality (2025-11-08)
+- [x] Parse preview dialog with confirmation before committing to database (2025-11-08)
 
 ## Notes
 
