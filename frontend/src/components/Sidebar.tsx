@@ -6,6 +6,7 @@ const links = [
   { to: "/ocr", label: "OCR" },
   { to: "/review-ocr", label: "Review OCR" },
   { to: "/parse", label: "Parse" },
+  { to: "/search", label: "Search & Filter" },
   { to: "/table", label: "Table" },
   { to: "/graph", label: "Graph" },
   { to: "/review", label: "Review Duplicates" },

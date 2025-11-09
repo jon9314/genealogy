@@ -13,6 +13,7 @@ import OCRPage from "./routes/OCR";
 import ParsePage from "./routes/Parse";
 import ReviewPage from "./routes/Review";
 import ReviewOCRPage from "./routes/ReviewOCR";
+import SearchPage from "./routes/Search";
 import TablePage from "./routes/Table";
 import Upload from "./routes/Upload";
 import WarningsPage from "./routes/Warnings";
@@ -68,6 +69,7 @@ export default function App() {
             <Route path="/ocr" element={<OCRPage />} />
             <Route path="/review-ocr" element={<ReviewOCRPage />} />
             <Route path="/parse" element={<ParsePage />} />
+            <Route path="/search" element={<SearchPage />} />
             <Route path="/table" element={<TablePage />} />
             <Route path="/graph" element={<GraphPage />} />
             <Route path="/review" element={<ReviewPage />} />

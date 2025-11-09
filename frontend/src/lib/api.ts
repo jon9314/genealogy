@@ -114,6 +114,32 @@ export async function bulkUpdatePersons(personIds: number[], updates: Partial<Up
   return data;
 }
 
+export async function searchPersons(query: string): Promise<Person[]> {
+  const { data } = await client.get<Person[]>("/persons/search", {
+    params: { q: query },
+  });
+  return data;
+}
+
+export interface PersonFilters {
+  missing_birth?: boolean;
+  missing_death?: boolean;
+  has_approx?: boolean;
+  surname?: string;
+  min_gen?: number;
+  max_gen?: number;
+  birth_year_min?: number;
+  birth_year_max?: number;
+  sex?: "M" | "F";
+}
+
+export async function filterPersons(filters: PersonFilters): Promise<Person[]> {
+  const { data } = await client.get<Person[]>("/persons/filter", {
+    params: filters,
+  });
+  return data;
+}
+
 export async function bulkDeletePersons(personIds: number[], keepPersonId?: number): Promise<{ count: number; kept_id?: number }> {
   const { data } = await client.post("/persons/bulk-delete", {
     person_ids: personIds,

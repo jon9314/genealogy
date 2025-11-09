@@ -187,3 +187,39 @@ def parse_status(source_id: int, session: Session = Depends(get_session)) -> JSO
             "children": len(children),
         }
     )
+
+
+@router.get("/version-check")
+def check_parser_versions(session: Session = Depends(get_session)) -> JSONResponse:
+    """
+    Check which sources need re-parsing due to outdated parser version.
+    Returns list of sources with their current parser version vs latest version.
+    """
+    from ..core.parser import PARSER_VERSION
+
+    sources = session.exec(select(Source).where(Source.parse_done == True)).all()
+
+    outdated_sources = []
+    current_sources = []
+
+    for source in sources:
+        source_info = {
+            "id": source.id,
+            "name": source.name,
+            "current_version": source.parser_version,
+            "latest_version": PARSER_VERSION,
+            "needs_reparse": source.parser_version != PARSER_VERSION
+        }
+
+        if source.parser_version != PARSER_VERSION:
+            outdated_sources.append(source_info)
+        else:
+            current_sources.append(source_info)
+
+    return JSONResponse({
+        "latest_version": PARSER_VERSION,
+        "outdated_count": len(outdated_sources),
+        "current_count": len(current_sources),
+        "outdated_sources": outdated_sources,
+        "current_sources": current_sources
+    })
