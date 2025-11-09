@@ -77,17 +77,24 @@ This file tracks potential fixes, improvements, and feature requests for the gen
 - [x] Background processing for OCR with notifications - COMPLETED 2025-11-09
 - [x] Queue multiple OCR jobs - COMPLETED 2025-11-09
 - [x] Incremental parsing (parse new pages only, not entire source) - COMPLETED 2025-11-09
-- [ ] Store parser version in database to detect when re-parsing is needed
+- [x] Store parser version in database to detect when re-parsing is needed - COMPLETED 2025-11-09
 
 ### UX Polish
 - [ ] Keyboard shortcuts
   - Navigation (tab through records, arrow keys in table)
   - Quick actions (Ctrl+S to save, Ctrl+E to export)
-- [ ] Global search across all people
-- [ ] Advanced filters
-  - Show only people with missing birth dates
-  - Show only approximate data
-  - Filter by generation, surname, date range
+- [x] Global search across all people - COMPLETED 2025-11-09
+  - ✅ Search across name, given, surname, birth, death, notes, title
+  - ✅ Case-insensitive substring matching
+  - ✅ Dedicated search page with results table
+- [x] Advanced filters - COMPLETED 2025-11-09
+  - ✅ Show only people with missing birth dates
+  - ✅ Show only people with missing death dates
+  - ✅ Show only approximate data
+  - ✅ Filter by generation range
+  - ✅ Filter by surname
+  - ✅ Filter by birth year range
+  - ✅ Filter by sex (M/F)
 - [ ] Dark mode support
 - [ ] Mobile responsiveness (at least for viewing)
 - [ ] Quick Start wizard for first-time users
