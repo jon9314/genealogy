@@ -49,31 +49,34 @@ This file tracks potential fixes, improvements, and feature requests for the gen
   - ✅ Add "Save checkpoint" feature for major milestones
 
 ### Source & Citation Features
-- [ ] Source citation tracking in UI
-  - Add "Jump to source" button from person record to original PDF page
-  - Display source page/line references in person details
+- [x] Source citation tracking in UI - COMPLETED 2025-11-09
+  - [x] Add "Jump to source" button from person record to original PDF page - COMPLETED 2025-11-09
+  - [x] Display source page/line references in person details - COMPLETED 2025-11-09
 - [ ] Relationship validation
-  - Visual family tree validator with suspicious relationships highlighted
-  - "Orphan" detection (people with no family connections)
+  - [x] Visual family tree validator with suspicious relationships highlighted - COMPLETED 2025-11-09
+  - [x] "Orphan" detection (people with no family connections) - COMPLETED 2025-11-09
 
 ### Export & Import Features
-- [ ] Export preview and validation
-  - Show GEDCOM preview before download
-  - Validate GEDCOM against spec and show warnings
-  - Warn about data loss (fields that won't export)
-- [ ] Import from GEDCOM
-  - Allow importing existing GEDCOM trees
-  - Merge OCR'd data with existing research
-  - Import rollback if user doesn't like the result
+- [x] Export preview and validation - COMPLETED 2025-11-09
+  - [x] Show GEDCOM preview before download - COMPLETED 2025-11-09
+  - [x] Validate GEDCOM against spec and show warnings - COMPLETED 2025-11-09
+  - [x] Warn about data loss (fields that won't export) - COMPLETED 2025-11-09
+- [x] Import from GEDCOM - COMPLETED 2025-11-09 (initial by Gemini), FIXED 2025-11-09 (by Claude)
+  - [x] Allow importing existing GEDCOM trees - COMPLETED 2025-11-09
+  - [x] Merge OCR'd data with existing research - COMPLETED 2025-11-09
+  - [x] Import rollback if user doesn't like the result - COMPLETED 2025-11-09
+  - [x] Fix critical bugs (StringIO, xref mapping, children linking) - COMPLETED 2025-11-09
+  - [x] Proper error handling and validation - COMPLETED 2025-11-09
+  - [x] Source tracking for imported records - COMPLETED 2025-11-09
 
 ## Low Priority / Nice to Have
 
 ### Performance Optimizations
-- [ ] Real-time OCR progress (showing current page/total pages)
-- [ ] Streaming parser updates instead of waiting for completion
-- [ ] Background processing for OCR with notifications
-- [ ] Queue multiple OCR jobs
-- [ ] Incremental parsing (parse new pages only, not entire source)
+- [x] Real-time OCR progress (showing current page/total pages) - COMPLETED 2025-11-09
+- [x] Streaming parser updates instead of waiting for completion - COMPLETED 2025-11-09
+- [x] Background processing for OCR with notifications - COMPLETED 2025-11-09
+- [x] Queue multiple OCR jobs - COMPLETED 2025-11-09
+- [x] Incremental parsing (parse new pages only, not entire source) - COMPLETED 2025-11-09
 - [ ] Store parser version in database to detect when re-parsing is needed
 
 ### UX Polish
