@@ -16,9 +16,9 @@ This file tracks potential fixes, improvements, and feature requests for the gen
   - ✅ Allow users to view/edit raw OCR text before parsing
   - ✅ Highlight lines that don't match expected patterns
   - ✅ Show Tesseract confidence scores (COMPLETED 2025-11-08 - optional feature)
-- [ ] Improved duplicate detection
-  - Add soundex/metaphone matching for phonetically similar names (William vs Bill)
-  - Add birth year tolerance (±2 years) for OCR errors
+- [x] Improved duplicate detection - COMPLETED 2025-11-08
+  - ✅ Add soundex/metaphone matching for phonetically similar names (William vs Bill)
+  - ✅ Add birth year tolerance (±2 years) for OCR errors
 - [ ] Data validation warnings
   - Check for impossible dates (child born before parent, death before birth)
   - Flag suspiciously large age gaps between spouses or generations
@@ -111,12 +111,15 @@ This file tracks potential fixes, improvements, and feature requests for the gen
 - [x] Implement project auto-save (every 5 minutes, keeps last 5 versions) (2025-11-08)
 - [x] OCR text review and editing before parsing with pattern validation (2025-11-08)
 - [x] Tesseract confidence scores with optional extraction and display (2025-11-08)
+- [x] Improved duplicate detection with phonetic matching and birth year tolerance (2025-11-08)
 
 ## Notes
 
 ### Parser Behavior (Current)
 - Collects and displays unparseable lines to users in Parse UI (parser.py:291)
 - Uses Levenshtein distance ≤2 for name matching
+- Uses metaphone phonetic matching for similar-sounding names (William/Bill, Stephen/Steven)
+- Allows ±2 year tolerance for birth year matching (handles OCR errors)
 - Detects "abt", "circa", "?", trailing "-" for approximate data
 - Handles multiple records per line by splitting on `\d+--` and `sp-` patterns
 

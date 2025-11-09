@@ -53,7 +53,11 @@ export default function ReviewPage() {
     <div className="grid" style={{ gap: "1.5rem" }}>
       <div className="card">
         <h2>Potential duplicates</h2>
-        <p>Groups matched by surname, given name, and birth year. Resolve duplicates manually by editing or deleting extras.</p>
+        <p>
+          Review potential duplicates grouped by surname, given name, and birth year.
+          The parser uses fuzzy matching (Â±2 year tolerance, phonetic name matching) to reduce duplicates during import.
+          Manually resolve any remaining duplicates by editing or deleting extras.
+        </p>
       </div>
       {duplicates
         .filter((group) => !dismissed.has(group.key))
@@ -75,7 +79,7 @@ export default function ReviewPage() {
                     <div>
                       <div style={{ fontWeight: 600 }}>{member.name}</div>
                       <div style={{ fontSize: "0.85rem", opacity: 0.8 }}>
-                        Birth: {member.birth || "?"} · Death: {member.death || "?"}
+                        Birth: {member.birth || "?"} ï¿½ Death: {member.death || "?"}
                       </div>
                     </div>
                     <button className="btn secondary" onClick={() => void handleDelete(member)}>
@@ -83,7 +87,7 @@ export default function ReviewPage() {
                     </button>
                   </div>
                   <div style={{ marginTop: "0.5rem", fontSize: "0.85rem", opacity: 0.8 }}>
-                    Notes: {member.notes || "—"}
+                    Notes: {member.notes || "ï¿½"}
                   </div>
                 </div>
               ))}

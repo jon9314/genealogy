@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
+import jellyfish
 import re
 
 from sqlalchemy import UniqueConstraint, and_, or_
@@ -120,6 +121,25 @@ class Person(PersonBase, table=True):
         return prev[-1]
 
     @classmethod
+    def _phonetic_match(cls, a: Optional[str], b: Optional[str]) -> bool:
+        """
+        Check if two names match phonetically using metaphone.
+        Returns True if they sound similar (e.g., William/Bill, John/Jon).
+        """
+        if a is None or b is None:
+            return False
+        if not a or not b:
+            return False
+
+        # Use metaphone for phonetic matching
+        try:
+            metaphone_a = jellyfish.metaphone(a)
+            metaphone_b = jellyfish.metaphone(b)
+            return metaphone_a == metaphone_b
+        except Exception:
+            return False
+
+    @classmethod
     def upsert_from_parse(
         cls,
         session: Session,
@@ -170,10 +190,20 @@ class Person(PersonBase, table=True):
                 query.where(cls.normalized_surname == normalized_surname)
             ).all()
             for candidate in candidates:
-                if birth_year is not None and candidate.birth_year not in (None, birth_year):
-                    continue
+                # Birth year tolerance: Allow ±2 years for OCR errors
+                if birth_year is not None and candidate.birth_year is not None:
+                    year_diff = abs(birth_year - candidate.birth_year)
+                    if year_diff > 2:
+                        continue
+
+                # Check both Levenshtein distance and phonetic matching
                 distance = cls._levenshtein(normalized_given, candidate.normalized_given)
-                if distance <= 2:
+                phonetic_match = cls._phonetic_match(given, candidate.given)
+
+                # Match if:
+                # - Levenshtein distance ≤2 (catches typos, John/Jon), OR
+                # - Phonetically similar (catches William/Bill, Stephen/Steven)
+                if distance <= 2 or phonetic_match:
                     person = candidate
                     break
 
