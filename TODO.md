@@ -147,9 +147,9 @@ This file tracks potential fixes, improvements, and feature requests for the gen
 - Handles multiple records per line by splitting on generation markers and `sp-` patterns
 
 ### Technical Debt
-- Fix 2 failing tests in `test_models_upsert.py` (incorrect function signatures)
-- Fix deprecated Pydantic `env` parameter warnings in `settings.py`
-- Consider adding type hints to frontend TypeScript code
+- [x] Fix 2 failing tests in `test_models_upsert.py` (incorrect function signatures) - COMPLETED 2025-11-09
+- [x] Fix deprecated Pydantic `env` parameter warnings in `settings.py` - COMPLETED 2025-11-09
+- [ ] Consider adding type hints to frontend TypeScript code
 
 ### Future Ideas
 - Integration with FamilySearch/Ancestry APIs (if permitted)
