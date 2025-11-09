@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy import or_
 from sqlmodel import Session, select
 
@@ -47,6 +47,24 @@ async def upload_files(
 def list_files(session: Session = Depends(get_session)) -> List[SourceRead]:
     sources = session.exec(select(Source)).all()
     return list(sources)
+
+
+@router.get("/{source_id}/pdf")
+def get_pdf(source_id: int, session: Session = Depends(get_session)) -> FileResponse:
+    """Serve the original PDF file for viewing."""
+    source = session.get(Source, source_id)
+    if not source:
+        raise HTTPException(status_code=404, detail="Source not found")
+
+    pdf_path = Path(source.path)
+    if not pdf_path.exists():
+        raise HTTPException(status_code=404, detail="PDF file not found on disk")
+
+    return FileResponse(
+        path=str(pdf_path),
+        media_type="application/pdf",
+        filename=source.name
+    )
 
 
 @router.delete("/{source_id}")

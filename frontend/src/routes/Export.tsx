@@ -1,60 +1,132 @@
 import { useState } from "react";
-
-import { exportCsv, exportGedcom } from "../lib/api";
-
-function saveBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
+import { exportGedcom } from "../lib/api";
+import client from "../lib/api";
 
 export default function ExportPage() {
-  const [working, setWorking] = useState(false);
+  const [gedcomPreview, setGedcomPreview] = useState("");
+  const [validationResults, setValidationResults] = useState<string[]>([]);
+  const [dataLossWarnings, setDataLossWarnings] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const handleGedcom = async () => {
-    setWorking(true);
+  const handlePreview = async () => {
+    setLoading(true);
     try {
-      const blob = await exportGedcom();
-      saveBlob(blob, "genealogy.ged");
+      const response = await client.post("/export/gedcom", null, { params: { preview: true } });
+      setGedcomPreview(response.data.content);
+    } catch (error) {
+      console.error("Failed to generate GEDCOM preview:", error);
     } finally {
-      setWorking(false);
+      setLoading(false);
     }
   };
 
-  const handleCsv = async () => {
-    setWorking(true);
-    try {
-      const blob = await exportCsv();
-      saveBlob(blob, "genealogy.csv");
-    } finally {
-      setWorking(false);
+  const handleValidate = async () => {
+    if (!gedcomPreview) {
+      alert("Please generate a preview first.");
+      return;
     }
+    setLoading(true);
+    try {
+      const response = await client.post("/export/validate", { gedcom: gedcomPreview });
+      setValidationResults(response.data.errors);
+    } catch (error) {
+      console.error("Failed to validate GEDCOM:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDataLossCheck = async () => {
+    setLoading(true);
+    try {
+      const response = await client.get("/export/data-loss-warnings");
+      const warnings: string[] = [];
+      if (response.data.person_fields && response.data.person_fields.length > 0) {
+        warnings.push("The following Person fields will not be exported: " + response.data.person_fields.join(", "));
+      }
+      if (response.data.family_fields && response.data.family_fields.length > 0) {
+        warnings.push("The following Family fields will not be exported: " + response.data.family_fields.join(", "));
+      }
+      setDataLossWarnings(warnings);
+    } catch (error) {
+      console.error("Failed to get data loss warnings:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    const blob = await exportGedcom();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `genealogy-${new Date().toISOString()}.ged`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   return (
     <div className="grid" style={{ gap: "1.5rem" }}>
       <div className="card">
-        <h2>Export options</h2>
-        <p>GEDCOM 5.5.1 (UTF-8) exports include all individuals and families. CSV exports provide a flat person list.</p>
+        <h2>Export</h2>
+        <p>
+          Export your genealogy data to GEDCOM format. You can preview the GEDCOM file, validate it against the spec, and check for potential data loss before downloading.
+        </p>
       </div>
-      <div className="grid two">
-        <div className="card">
-          <h3>GEDCOM</h3>
-          <p>Compatible with RootsMagic, Family Tree Maker, and Ancestry.</p>
-          <button className="btn" onClick={handleGedcom} disabled={working}>
-            {working ? "Preparing..." : "Export GEDCOM"}
+
+      <div className="card">
+        <h3>GEDCOM Preview</h3>
+        <div className="grid" style={{ gap: "1rem" }}>
+          <button className="btn" onClick={handlePreview} disabled={loading}>
+            {loading ? "Generating..." : "Generate Preview"}
           </button>
+          <textarea rows={10} value={gedcomPreview} readOnly />
         </div>
-        <div className="card">
-          <h3>CSV</h3>
-          <p>Imports easily into spreadsheets for auditing.</p>
-          <button className="btn" onClick={handleCsv} disabled={working}>
-            {working ? "Preparing..." : "Export CSV"}
+      </div>
+
+      <div className="card">
+        <h3>GEDCOM Validation</h3>
+        <div className="grid" style={{ gap: "1rem" }}>
+          <button className="btn" onClick={handleValidate} disabled={!gedcomPreview || loading}>
+            {loading ? "Validating..." : "Validate GEDCOM"}
           </button>
+          {validationResults.length > 0 ? (
+            <ul>
+              {validationResults.map((error, index) => (
+                <li key={index}>{error}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>No validation errors found.</p>
+          )}
         </div>
+      </div>
+
+      <div className="card">
+        <h3>Data Loss Warnings</h3>
+        <div className="grid" style={{ gap: "1rem" }}>
+          <button className="btn" onClick={handleDataLossCheck} disabled={loading}>
+            {loading ? "Checking..." : "Check for Data Loss"}
+          </button>
+          {dataLossWarnings.length > 0 ? (
+            <ul>
+              {dataLossWarnings.map((warning, index) => (
+                <li key={index}>{warning}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>No data loss warnings found.</p>
+          )}
+        </div>
+      </div>
+
+      <div className="card">
+        <h3>Download</h3>
+        <button className="btn" onClick={handleDownload}>
+          Download GEDCOM
+        </button>
       </div>
     </div>
   );

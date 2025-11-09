@@ -3,13 +3,14 @@ import { useEffect, useState } from "react";
 import GraphView from "../components/GraphView";
 import PersonForm from "../components/PersonForm";
 import { useUndoRedo } from "../hooks/useUndoRedo";
-import { listFamilies, listPersons, reparent, updatePerson } from "../lib/api";
-import type { FamilyWithChildren, Person, UpdatePersonPayload } from "../lib/types";
+import { listFamilies, listPersons, reparent, updatePerson, getRelationshipValidation } from "../lib/api";
+import type { FamilyWithChildren, Person, UpdatePersonPayload, RelationshipValidation } from "../lib/types";
 
 export default function GraphPage() {
   const [people, setPeople] = useState<Person[]>([]);
   const [families, setFamilies] = useState<FamilyWithChildren[]>([]);
   const [editing, setEditing] = useState<Person | null>(null);
+  const [relationshipData, setRelationshipData] = useState<RelationshipValidation | null>(null);
   const { push } = useUndoRedo();
 
   useEffect(() => {
@@ -17,9 +18,14 @@ export default function GraphPage() {
   }, []);
 
   const refresh = async () => {
-    const [personsData, familyData] = await Promise.all([listPersons(), listFamilies()]);
+    const [personsData, familyData, relationshipData] = await Promise.all([
+      listPersons(),
+      listFamilies(),
+      getRelationshipValidation(),
+    ]);
     setPeople(personsData);
     setFamilies(familyData);
+    setRelationshipData(relationshipData);
   };
 
   const mapById = useMemo(() => new Map(people.map((person) => [person.id, person])), [people]);
@@ -83,6 +89,7 @@ export default function GraphPage() {
         families={families}
         onEdit={(person) => setEditing(person)}
         onReparent={handleReparent}
+        relationshipData={relationshipData}
       />
       {editing && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "grid", placeItems: "center" }}>
@@ -92,5 +99,3 @@ export default function GraphPage() {
     </div>
   );
 }
-
-

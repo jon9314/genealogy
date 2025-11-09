@@ -4,11 +4,11 @@ import csv
 import io
 from datetime import datetime
 
-from fastapi import APIRouter, Depends
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, Body
+from fastapi.responses import StreamingResponse, JSONResponse
 from sqlmodel import Session, select
 
-from ..core.gedcom import export_gedcom
+from ..core.gedcom import export_gedcom, validate_gedcom
 from ..core.models import Person
 from ..db import get_session
 
@@ -20,16 +20,43 @@ def _timestamped_filename(stem: str, suffix: str) -> str:
 
 
 @router.post("/gedcom")
-def export_gedcom_file(session: Session = Depends(get_session)) -> StreamingResponse:
+def export_gedcom_file(
+    preview: bool = False, session: Session = Depends(get_session)
+) -> StreamingResponse | JSONResponse:
     filename = _timestamped_filename("genealogy", "ged")
     buffer = io.StringIO()
     export_gedcom(session, buffer, filename)
-    data = buffer.getvalue().encode("utf-8")
+    data = buffer.getvalue()
+    if preview:
+        return JSONResponse({"content": data})
     return StreamingResponse(
-        iter([data]),
+        iter([data.encode("utf-8")]),
         media_type="text/plain; charset=utf-8",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+
+@router.post("/validate")
+def validate_gedcom_file(
+    gedcom: str = Body(..., embed=True),
+) -> JSONResponse:
+    errors = validate_gedcom(gedcom)
+    return JSONResponse({"errors": errors})
+
+
+@router.get("/data-loss-warnings")
+def get_data_loss_warnings() -> JSONResponse:
+    person_lost_fields = [
+        "chart_id", "gen", "line_key", "approx", "source_id", "page_index",
+        "line_index", "normalized_given", "normalized_surname", "birth_year"
+    ]
+    family_lost_fields = [
+        "notes", "line_key", "approx", "source_id", "is_single_parent"
+    ]
+    return JSONResponse({
+        "person_fields": person_lost_fields,
+        "family_fields": family_lost_fields,
+    })
 
 
 @router.post("/csv")

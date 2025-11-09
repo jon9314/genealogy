@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 
-import { getValidationWarnings } from "../lib/api";
-import type { ValidationWarning } from "../lib/types";
+import { getValidationWarnings, getRelationshipValidation } from "../lib/api";
+import type { ValidationWarning, RelationshipValidation } from "../lib/types";
 
 export default function WarningsPage() {
   const [warnings, setWarnings] = useState<ValidationWarning[]>([]);
+  const [relationshipData, setRelationshipData] = useState<RelationshipValidation | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "error" | "warning" | "info">("all");
 
@@ -15,8 +16,10 @@ export default function WarningsPage() {
   const loadWarnings = async () => {
     setLoading(true);
     try {
-      const data = await getValidationWarnings();
-      setWarnings(data);
+      const warningsData = await getValidationWarnings();
+      setWarnings(warningsData);
+      const relationshipData = await getRelationshipValidation();
+      setRelationshipData(relationshipData);
     } catch (error) {
       console.error("Failed to load validation warnings:", error);
     } finally {
@@ -72,10 +75,10 @@ export default function WarningsPage() {
   return (
     <div className="grid" style={{ gap: "1.5rem" }}>
       <div className="card">
-        <h2>Data Validation Warnings</h2>
+        <h2>Data Validation</h2>
         <p>
           Automatically detected data quality issues including impossible dates,
-          suspicious age gaps, and duplicate names within families.
+          suspicious age gaps, duplicate names within families, and people with no family connections.
         </p>
       </div>
 
@@ -120,6 +123,24 @@ export default function WarningsPage() {
               Refresh
             </button>
           </div>
+
+          {relationshipData && (
+            <div className="card">
+              <h3>Orphaned People</h3>
+              <p>
+                Found {relationshipData.orphan_count} people who are not connected to any family.
+              </p>
+              {relationshipData.orphans.length > 0 && (
+                <div className="grid" style={{ gap: "0.5rem", marginTop: "1rem" }}>
+                  {relationshipData.orphans.map((orphan) => (
+                    <div key={orphan.id} className="badge">
+                      {orphan.name} (ID: {orphan.id})
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Warnings List */}
           {filteredWarnings.length === 0 ? (

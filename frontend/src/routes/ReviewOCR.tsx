@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { getOCRText, listSources, updateOCRText, validateOCRText } from "../lib/api";
+import { getOCRText, listSources, updateOCRText, validateOCRText, parseSource } from "../lib/api";
 import type { LineConfidence, LineValidation, PageText, Source } from "../lib/types";
 
 export default function ReviewOCRPage() {
@@ -12,6 +12,7 @@ export default function ReviewOCRPage() {
   const [validations, setValidations] = useState<LineValidation[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     listSources().then((data) => {
@@ -40,6 +41,7 @@ export default function ReviewOCRPage() {
       const data = await getOCRText(sourceId);
       setPages(data);
       setCurrentPageIndex(0);
+      setSelectedPages(new Set(data.map(p => p.page_index)));
     } catch (error) {
       console.error("Failed to load OCR text:", error);
       alert("Failed to load OCR text");
@@ -99,6 +101,32 @@ export default function ReviewOCRPage() {
     }
     if (currentPageIndex < pages.length - 1) {
       setCurrentPageIndex(currentPageIndex + 1);
+    }
+  };
+
+  const handleTogglePageSelection = (pageIndex: number) => {
+    const newSelection = new Set(selectedPages);
+    if (newSelection.has(pageIndex)) {
+      newSelection.delete(pageIndex);
+    } else {
+      newSelection.add(pageIndex);
+    }
+    setSelectedPages(newSelection);
+  };
+
+  const handleParseSelectedPages = async () => {
+    if (!selectedSource) return;
+    const pageIndexes = Array.from(selectedPages);
+    if (pageIndexes.length === 0) {
+      alert("Please select at least one page to parse.");
+      return;
+    }
+    try {
+      await parseSource(selectedSource, pageIndexes);
+      alert("Parsing started for selected pages.");
+    } catch (error) {
+      console.error("Failed to start parsing:", error);
+      alert("Failed to start parsing.");
     }
   };
 
@@ -340,6 +368,28 @@ export default function ReviewOCRPage() {
                 }
               })()}
             </div>
+          </div>
+          <div className="card">
+            <h3>Incremental Parsing</h3>
+            <p>Select the pages you want to parse. Only the selected pages will be parsed.</p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", margin: "1rem 0" }}>
+              {pages.map(p => (
+                <div key={p.page_index}>
+                  <input
+                    type="checkbox"
+                    id={`page-${p.page_index}`}
+                    checked={selectedPages.has(p.page_index)}
+                    onChange={() => handleTogglePageSelection(p.page_index)}
+                  />
+                  <label htmlFor={`page-${p.page_index}`} style={{ marginLeft: "0.5rem" }}>
+                    Page {p.page_index + 1}
+                  </label>
+                </div>
+              ))}
+            </div>
+            <button className="btn" onClick={handleParseSelectedPages}>
+              Parse Selected Pages
+            </button>
           </div>
         </>
       )}

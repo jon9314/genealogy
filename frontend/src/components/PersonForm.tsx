@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react";
 
+import { listSources } from "../lib/api";
 import type { Person, UpdatePersonPayload } from "../lib/types";
 
 interface Props {
@@ -42,15 +43,30 @@ export default function PersonForm({ person, onSubmit, onClose }: Props) {
       <form onSubmit={handleSubmit} className="grid" style={{ gap: "0.75rem" }}>
         {person.source_id != null && (person.page_index != null || person.line_index != null) && (
           <div style={{
-            padding: "0.5rem",
-            backgroundColor: "#f3f4f6",
-            borderRadius: "4px",
+            padding: "0.75rem",
+            backgroundColor: "rgba(79, 156, 255, 0.1)",
+            border: "1px solid rgba(79, 156, 255, 0.3)",
+            borderRadius: "6px",
             fontSize: "0.85rem",
-            color: "#6b7280"
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "1rem"
           }}>
-            <strong>Source:</strong> ID {person.source_id}
-            {person.page_index != null && ` • Page ${person.page_index + 1}`}
-            {person.line_index != null && ` • Line ${person.line_index + 1}`}
+            <div>
+              <strong>📄 Source Citation:</strong> Source ID {person.source_id}
+              {person.page_index != null && ` • Page ${person.page_index + 1}`}
+              {person.line_index != null && ` • Line ${person.line_index + 1}`}
+            </div>
+            <a
+              href={`/api/files/${person.source_id}/pdf#page=${(person.page_index ?? 0) + 1}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn secondary"
+              style={{ fontSize: "0.75rem", padding: "0.35rem 0.75rem" }}
+            >
+              View Source →
+            </a>
           </div>
         )}
         <div>

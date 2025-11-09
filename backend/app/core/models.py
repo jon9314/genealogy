@@ -16,6 +16,7 @@ class SourceBase(SQLModel):
     pages: int = 0
     ocr_done: bool = False
     stage: str = "uploaded"  # uploaded, ocr_done, reviewed, parsed, edited, ready_to_export
+    parser_version: Optional[str] = None
 
 
 class Source(SourceBase, table=True):
@@ -295,6 +296,7 @@ class FamilyBase(SQLModel):
     notes: Optional[str] = None
     line_key: Optional[str] = Field(default=None, index=True)
     approx: Optional[bool] = None
+    page_index: Optional[int] = None
 
 
 class Family(FamilyBase, table=True):
@@ -316,6 +318,7 @@ class Family(FamilyBase, table=True):
         *,
         line_key: Optional[str] = None,
         approx: Optional[bool] = None,
+        page_index: Optional[int] = None,
     ) -> "Family":
         if person_a_id == person_b_id:
             return cls.ensure_for_single_parent(
@@ -324,6 +327,7 @@ class Family(FamilyBase, table=True):
                 person_a_id,
                 line_key=line_key,
                 approx=approx,
+                page_index=page_index,
             )
 
         pair = sorted((person_a_id, person_b_id))
@@ -349,6 +353,9 @@ class Family(FamilyBase, table=True):
             if approx is True and existing.approx is not True:
                 existing.approx = True
                 changed = True
+            if page_index is not None and existing.page_index != page_index:
+                existing.page_index = page_index
+                changed = True
             if changed:
                 session.add(existing)
             existing.is_single_parent = False
@@ -361,6 +368,7 @@ class Family(FamilyBase, table=True):
             is_single_parent=False,
             line_key=line_key,
             approx=approx,
+            page_index=page_index,
         )
         session.add(family)
         session.flush()
@@ -376,6 +384,7 @@ class Family(FamilyBase, table=True):
         *,
         line_key: Optional[str] = None,
         approx: Optional[bool] = None,
+        page_index: Optional[int] = None,
     ) -> "Family":
         existing = session.exec(
             select(cls).where(
@@ -394,6 +403,9 @@ class Family(FamilyBase, table=True):
             if approx is True and existing.approx is not True:
                 existing.approx = True
                 changed = True
+            if page_index is not None and existing.page_index != page_index:
+                existing.page_index = page_index
+                changed = True
             if changed:
                 session.add(existing)
             return existing
@@ -409,6 +421,7 @@ class Family(FamilyBase, table=True):
             is_single_parent=True,
             line_key=line_key,
             approx=approx,
+            page_index=page_index,
         )
         session.add(family)
         session.flush()
@@ -432,6 +445,7 @@ class ChildBase(SQLModel):
     order_index: int = 0
     line_key: Optional[str] = Field(default=None, index=True)
     approx: Optional[bool] = None
+    page_index: Optional[int] = None
 
 
 class Child(ChildBase, table=True):
@@ -450,6 +464,7 @@ class Child(ChildBase, table=True):
         *,
         line_key: Optional[str] = None,
         approx: Optional[bool] = None,
+        page_index: Optional[int] = None,
     ) -> "Child":
         existing = session.exec(
             select(cls).where(
@@ -463,6 +478,9 @@ class Child(ChildBase, table=True):
                 changed = True
             if approx is True and existing.approx is not True:
                 existing.approx = True
+                changed = True
+            if page_index is not None and existing.page_index != page_index:
+                existing.page_index = page_index
                 changed = True
             if changed:
                 session.add(existing)
@@ -478,6 +496,7 @@ class Child(ChildBase, table=True):
             order_index=order_index,
             line_key=line_key,
             approx=approx,
+            page_index=page_index,
         )
         session.add(child)
         session.flush()

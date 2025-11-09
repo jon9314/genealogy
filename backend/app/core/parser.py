@@ -4,14 +4,16 @@ import hashlib
 import logging
 import re
 from dataclasses import dataclass
-from typing import Dict, Iterator, List, Optional, Tuple
+from typing import Dict, Iterator, List, Optional, Tuple, Callable
 
 from sqlalchemy import text
 from sqlmodel import Session
 
-from .models import Child, Family, Person
+from .models import Child, Family, Person, Source
 
 LOGGER = logging.getLogger(__name__)
+
+PARSER_VERSION = "1.0.0"
 
 DASH_VARIANTS = "\u2010\u2011\u2012\u2013\u2014\u2015\u2212"
 # Primary pattern: II-- Name (double dash format)
@@ -122,11 +124,16 @@ def normalize_ocr_text(page: str) -> List[str]:
     return lines
 
 
-def iter_lines(pages: List[str]) -> Iterator[Tuple[int, int, str]]:
-    for page_index, page in enumerate(pages):
-        normalized = normalize_ocr_text(page)
-        for line_index, line in enumerate(normalized):
-            yield page_index, line_index, line
+def iter_lines(pages: List[str], page_indexes: Optional[List[int]] = None) -> Iterator[Tuple[int, int, str]]:
+    if page_indexes is None:
+        page_indexes = list(range(len(pages)))
+    
+    for page_index in page_indexes:
+        if page_index < len(pages):
+            page = pages[page_index]
+            normalized = normalize_ocr_text(page)
+            for line_index, line in enumerate(normalized):
+                yield page_index, line_index, line
 
 
 def _ensure_person_approx_column(session: Session) -> None:
@@ -318,13 +325,21 @@ def parse_ocr_text(
     *,
     source_id: int,
     pages: List[str],
+    page_indexes: Optional[List[int]] = None,
+    progress_callback: Optional[Callable[[int, int], None]] = None,
 ) -> Dict[str, int]:
     _ensure_person_approx_column(session)
 
     stats = ParseStats(set(), set(), set(), [])
     generation_stack: List[GenerationContext] = []
+    
+    lines = list(iter_lines(pages, page_indexes))
+    total_lines = len(lines)
 
-    for page_index, line_index, raw_line in iter_lines(pages):
+    for i, (page_index, line_index, raw_line) in enumerate(lines):
+        if progress_callback:
+            progress_callback(i + 1, total_lines)
+
         person_match = PERSON_PATTERN.match(raw_line)
         alt_match = PERSON_PATTERN_ALT.match(raw_line) if not person_match else None
 
@@ -398,6 +413,7 @@ def parse_ocr_text(
                         parent_context.person.id,
                         line_key=family_key,
                         approx=bool(parent_context.person.approx),
+                        page_index=page_index,
                     )
                     parent_context.family = family
                 if family and family.id:
@@ -415,6 +431,7 @@ def parse_ocr_text(
                         person.id,
                         line_key=link_key,
                         approx=data["approx"],
+                        page_index=page_index,
                     )
                     if link.id:
                         stats.children_seen.add(link.id)
@@ -463,6 +480,8 @@ def parse_ocr_text(
                     )
                 if approx_flag and family.approx is not True:
                     family.approx = True
+                if family.page_index is None:
+                    family.page_index = page_index
                 session.add(family)
             else:
                 family_key = _family_line_key(
@@ -479,6 +498,7 @@ def parse_ocr_text(
                     spouse.id,
                     line_key=family_key,
                     approx=approx_flag,
+                    page_index=page_index,
                 )
             context.family = family
             context.spouse = spouse
@@ -488,6 +508,11 @@ def parse_ocr_text(
                 family.approx = True
                 session.add(family)
             continue
+
+    source = session.get(Source, source_id)
+    if source:
+        source.parser_version = PARSER_VERSION
+        session.add(source)
 
     session.commit()
     return {

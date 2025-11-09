@@ -10,7 +10,15 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from ..core.models import PageText, Source
-from ..core.ocr_runner import OCRProcessError, extract_confidence_scores, run_ocr
+from ..core.ocr_runner import (
+    OCRProcessError,
+    extract_confidence_scores,
+    queue_ocr_job,
+    get_ocr_job_status,
+    get_ocr_result,
+    get_notifications,
+    clear_notification,
+)
 from ..core.parser import PERSON_PATTERN, PERSON_PATTERN_ALT, SPOUSE_PATTERN
 from ..core.settings import get_settings
 from ..db import get_session
@@ -38,8 +46,7 @@ class LineValidation(BaseModel):
 @router.post("/{source_id}")
 def run_ocr_for_source(
     source_id: int,
-    include_confidence: bool = Body(False, embed=True),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
 ) -> JSONResponse:
     source = session.get(Source, source_id)
     if not source:
@@ -52,15 +59,54 @@ def run_ocr_for_source(
     output_pdf = settings.ocr_dir / f"{pdf_input.stem}-ocr.pdf"
 
     try:
-        texts = run_ocr(pdf_input, output_pdf)
+        job_id = queue_ocr_job(pdf_input, output_pdf)
     except OCRProcessError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return JSONResponse({"job_id": job_id})
+
+
+@router.get("/notifications")
+def get_all_notifications() -> JSONResponse:
+    return JSONResponse(get_notifications())
+
+
+@router.delete("/notifications/{notification_id}")
+def delete_notification(notification_id: str) -> JSONResponse:
+    clear_notification(notification_id)
+    return JSONResponse({"status": "ok"})
+
+
+@router.get("/{job_id}/progress")
+def get_ocr_progress(job_id: str) -> JSONResponse:
+    try:
+        status = get_ocr_job_status(job_id)
+        return JSONResponse(status)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/{source_id}/status")
+def ocr_status(
+    source_id: int,
+    job_id: str,
+    include_confidence: bool = Body(False, embed=True),
+    session: Session = Depends(get_session),
+) -> JSONResponse:
+    source = session.get(Source, source_id)
+    if not source:
+        raise HTTPException(status_code=404, detail="Source not found")
+
+    try:
+        texts = get_ocr_result(job_id)
+    except (ValueError, OCRProcessError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     # Optionally extract confidence scores
     confidences: List[tuple[float, str]] | None = None
     if include_confidence:
         try:
-            confidences = extract_confidence_scores(pdf_input)
+            confidences = extract_confidence_scores(Path(source.path))
         except OCRProcessError as exc:
             # Log error but don't fail the entire OCR if confidence extraction fails
             import logging
@@ -87,15 +133,6 @@ def run_ocr_for_source(
     session.commit()
 
     return JSONResponse({"pages": source.pages, "ocr_done": source.ocr_done})
-
-
-@router.get("/{source_id}")
-def ocr_status(source_id: int, session: Session = Depends(get_session)) -> JSONResponse:
-    source = session.get(Source, source_id)
-    if not source:
-        raise HTTPException(status_code=404, detail="Source not found")
-    page_count = len(session.exec(select(PageText).where(PageText.source_id == source_id)).all())
-    return JSONResponse({"pages": page_count, "ocr_done": source.ocr_done})
 
 
 @router.get("/{source_id}/text")
