@@ -1,3 +1,4 @@
+import WorkflowStepper from "./WorkflowStepper";
 import type { Source } from "../lib/types";
 
 interface Props {
@@ -6,15 +7,28 @@ interface Props {
   onRunOCR?: (id: number) => void;
   onParse?: (id: number) => void;
   busy?: boolean;
+  selectable?: boolean;
+  selected?: boolean;
+  onSelect?: (id: number, selected: boolean) => void;
 }
 
-export default function FileCard({ source, onDelete, onRunOCR, onParse, busy = false }: Props) {
+export default function FileCard({ source, onDelete, onRunOCR, onParse, busy = false, selectable = false, selected = false, onSelect }: Props) {
   return (
-    <div className="card" style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+    <div className="card" style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <div style={{ fontWeight: 600 }}>{source.name}</div>
-          <div className="badge">ID {source.id}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          {selectable && onSelect && (
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={(e) => onSelect(source.id, e.target.checked)}
+              style={{ width: "18px", height: "18px", cursor: "pointer" }}
+            />
+          )}
+          <div>
+            <div style={{ fontWeight: 600 }}>{source.name}</div>
+            <div className="badge">ID {source.id}</div>
+          </div>
         </div>
         <div style={{ display: "flex", gap: "0.5rem" }}>
           {onRunOCR && (
@@ -38,6 +52,7 @@ export default function FileCard({ source, onDelete, onRunOCR, onParse, busy = f
         <span>Pages: {source.pages}</span>
         <span>OCR: {source.ocr_done ? "Complete" : "Pending"}</span>
       </div>
+      <WorkflowStepper currentStage={source.stage} compact />
     </div>
   );
 }

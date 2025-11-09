@@ -15,6 +15,7 @@ class SourceBase(SQLModel):
     path: str
     pages: int = 0
     ocr_done: bool = False
+    stage: str = "uploaded"  # uploaded, ocr_done, reviewed, parsed, edited, ready_to_export
 
 
 class Source(SourceBase, table=True):

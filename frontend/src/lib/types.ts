@@ -4,6 +4,7 @@ export interface Source {
   path: string;
   pages: number;
   ocr_done: boolean;
+  stage: string;
 }
 
 export interface PageText {

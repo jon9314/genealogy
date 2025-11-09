@@ -3,9 +3,10 @@ import { useLocation } from "react-router-dom";
 
 import { openProject, saveProject } from "../lib/api";
 import { useUndoRedo } from "../hooks/useUndoRedo";
+import UndoHistoryViewer from "./UndoHistoryViewer";
 
 export default function Toolbar() {
-  const { canUndo, canRedo, undo, redo, history } = useUndoRedo();
+  const { history } = useUndoRedo();
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const location = useLocation();
@@ -40,13 +41,8 @@ export default function Toolbar() {
         <div style={{ fontSize: "1.5rem", fontWeight: 700 }}>{titleForRoute(location.pathname)}</div>
         <div style={{ opacity: 0.7, fontSize: "0.9rem" }}>Undo stack: {history.length}</div>
       </div>
-      <div style={{ display: "flex", gap: "0.75rem" }}>
-        <button className="btn secondary" disabled={!canUndo} onClick={() => void undo()}>
-          Undo
-        </button>
-        <button className="btn secondary" disabled={!canRedo} onClick={() => void redo()}>
-          Redo
-        </button>
+      <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+        <UndoHistoryViewer />
         <button className="btn secondary" onClick={handleOpen} disabled={loading}>
           {loading ? "Opening..." : "Open"}
         </button>

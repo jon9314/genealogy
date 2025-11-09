@@ -4,6 +4,7 @@ type UndoAction = {
   label: string;
   redo: () => Promise<void> | void;
   undo: () => Promise<void> | void;
+  isCheckpoint?: boolean;
 };
 
 type UndoContextValue = {
@@ -12,7 +13,9 @@ type UndoContextValue = {
   undo: () => Promise<void>;
   redo: () => Promise<void>;
   push: (action: UndoAction, immediate?: boolean) => Promise<void>;
+  saveCheckpoint: (label: string) => void;
   history: UndoAction[];
+  currentPosition: number;
 };
 
 const UndoContext = createContext<UndoContextValue | null>(null);
@@ -45,6 +48,17 @@ export function UndoProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const saveCheckpoint = useCallback((label: string) => {
+    const checkpoint: UndoAction = {
+      label: `📍 Checkpoint: ${label}`,
+      redo: () => {},
+      undo: () => {},
+      isCheckpoint: true,
+    };
+    setPast((prev) => [...prev, checkpoint]);
+    setFuture([]);
+  }, []);
+
   const value = useMemo<UndoContextValue>(
     () => ({
       canUndo: past.length > 0,
@@ -52,9 +66,11 @@ export function UndoProvider({ children }: { children: ReactNode }) {
       undo,
       redo,
       push,
+      saveCheckpoint,
       history: past,
+      currentPosition: past.length,
     }),
-    [future.length, past, push, redo, undo]
+    [future.length, past, push, redo, saveCheckpoint, undo]
   );
 
   return <UndoContext.Provider value={value}>{children}</UndoContext.Provider>;

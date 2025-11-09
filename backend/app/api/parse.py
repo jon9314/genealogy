@@ -38,6 +38,11 @@ def parse_source(source_id: int, session: Session = Depends(get_session)) -> JSO
         pages=[page.text for page in page_texts],
     )
 
+    # Update source stage to parsed
+    source.stage = "parsed"
+    session.add(source)
+    session.commit()
+
     return JSONResponse(
         {
             "people": stats.get("people", 0),

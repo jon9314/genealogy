@@ -82,6 +82,7 @@ def run_ocr_for_source(
 
     source.pages = len(texts)
     source.ocr_done = True
+    source.stage = "ocr_done"
     session.add(source)
     session.commit()
 
@@ -130,6 +131,13 @@ def update_ocr_text(
 
     page_text.text = payload.text
     session.add(page_text)
+
+    # Mark source as reviewed after any edits
+    source = session.get(Source, source_id)
+    if source and source.stage == "ocr_done":
+        source.stage = "reviewed"
+        session.add(source)
+
     session.commit()
 
     return JSONResponse({"status": "updated", "page_id": page_id})

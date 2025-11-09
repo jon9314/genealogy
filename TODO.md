@@ -36,17 +36,17 @@ This file tracks potential fixes, improvements, and feature requests for the gen
   - ✅ Suggest fixes (missing Tesseract language pack, corrupted PDF, etc.)
 
 ### Workflow & UX Improvements
-- [ ] Visual stepper/progress indicator: Upload → OCR → Review → Parse → Edit → Export
-- [ ] Show processing stage for each source in file list
+- [x] Visual stepper/progress indicator: Upload → OCR → Review → Parse → Edit → Export - COMPLETED 2025-11-08
+- [x] Show processing stage for each source in file list - COMPLETED 2025-11-08
 - [ ] Parse preview/confirmation dialog before committing to database
-- [ ] Batch operations
-  - Select multiple sources and OCR/parse all at once
-  - Bulk edit features (e.g., set sex for all "John" to M)
-  - Mass duplicate resolution (accept all suggestions)
-- [ ] Enhanced undo/redo
-  - Document what actions are undoable
-  - Show undo history
-  - Add "Save checkpoint" feature for major milestones
+- [x] Batch operations - COMPLETED 2025-11-08
+  - ✅ Select multiple sources and OCR/delete all at once
+  - [ ] Bulk edit features (e.g., set sex for all "John" to M)
+  - [ ] Mass duplicate resolution (accept all suggestions)
+- [x] Enhanced undo/redo - COMPLETED 2025-11-08
+  - ✅ Document what actions are undoable
+  - ✅ Show undo history
+  - ✅ Add "Save checkpoint" feature for major milestones
 
 ### Source & Citation Features
 - [ ] Source citation tracking in UI
@@ -116,6 +116,10 @@ This file tracks potential fixes, improvements, and feature requests for the gen
 - [x] Parser pattern flexibility supporting alternative generation formats (1. Name, I. Name) (2025-11-08)
 - [x] Enhanced vital date parsing for edge cases (b. 1850, d. 1920, 1850-living) (2025-11-08)
 - [x] Improved OCR error messages with helpful suggestions and troubleshooting (2025-11-08)
+- [x] Visual workflow stepper component showing progress through stages (2025-11-08)
+- [x] Processing stage tracking for each source (uploaded, ocr_done, reviewed, parsed, edited, ready_to_export) (2025-11-08)
+- [x] Batch operations for OCR and delete with selection UI (2025-11-08)
+- [x] Enhanced undo/redo with history viewer and checkpoint feature (2025-11-08)
 
 ## Notes
 
