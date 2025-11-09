@@ -1,4 +1,5 @@
 import { useState } from "react";
+import axios from "axios";
 import client from "../lib/api";
 
 interface ImportData {
@@ -47,9 +48,11 @@ export default function ImportPage() {
         },
       });
       setImportResults(response.data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to import GEDCOM file:", error);
-      const errorMsg = error.response?.data?.detail || "Failed to import GEDCOM file.";
+      const errorMsg = axios.isAxiosError(error) && error.response?.data?.detail
+        ? error.response.data.detail
+        : "Failed to import GEDCOM file.";
       setImportResults({ message: "", error: errorMsg });
     } finally {
       setLoading(false);
@@ -72,9 +75,12 @@ export default function ImportPage() {
       alert(response.data.message + `\nDeleted ${response.data.deleted.persons} persons and ${response.data.deleted.families} families.`);
       setImportResults(null);
       setSelectedFile(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to rollback import:", error);
-      alert(error.response?.data?.detail || "Failed to rollback import.");
+      const errorMsg = axios.isAxiosError(error) && error.response?.data?.detail
+        ? error.response.data.detail
+        : "Failed to rollback import.";
+      alert(errorMsg);
     } finally {
       setRolling(false);
     }

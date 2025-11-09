@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 
 import ParsePreviewDialog from "../components/ParsePreviewDialog";
-import { listSources, parseSource, parseSourcePreview } from "../lib/api";
-import type { Source } from "../lib/types";
+import { listSources, parseSource, parseSourcePreview, getParseProgress } from "../lib/api";
+import type { Source, ParsePreview } from "../lib/types";
 
 interface ParseResult {
   people: number;
@@ -10,25 +10,39 @@ interface ParseResult {
   flagged_lines: string[];
 }
 
-interface ParsePreview {
-  people: number;
-  families: number;
-  children: number;
-  flagged_lines: string[];
-  sample_people: any[];
-  sample_families: any[];
-}
-
 export default function ParsePage() {
   const [sources, setSources] = useState<Source[]>([]);
   const [results, setResults] = useState<Record<number, ParseResult>>({});
-  const [runningId, setRunningId] = useState<number | null>(null);
+  const [jobIds, setJobIds] = useState<Record<number, string>>({});
+  const [progress, setProgress] = useState<Record<string, { current: number; total: number }>>({});
   const [preview, setPreview] = useState<{ sourceId: number; data: ParsePreview; sourceName: string } | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
 
   useEffect(() => {
     listSources().then(setSources);
   }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      Object.entries(jobIds).forEach(async ([sourceId, jobId]) => {
+        const status = await getParseProgress(jobId);
+        if (status.progress) {
+          setProgress((prev) => ({ ...prev, [jobId]: status.progress }));
+        }
+        if (status.status === "completed" || status.status === "failed") {
+          setJobIds((prev) => {
+            const next = { ...prev };
+            delete next[Number(sourceId)];
+            return next;
+          });
+          if (status.status === "completed") {
+            setResults((prev) => ({ ...prev, [Number(sourceId)]: status.stats }));
+          }
+        }
+      });
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [jobIds]);
 
   const handleShowPreview = async (id: number, sourceName: string) => {
     setLoadingPreview(true);
@@ -46,17 +60,15 @@ export default function ParsePage() {
   const handleConfirmParse = async () => {
     if (!preview) return;
 
-    setRunningId(preview.sourceId);
+    const sourceId = preview.sourceId;
     setPreview(null);
 
     try {
-      const data = await parseSource(preview.sourceId);
-      setResults((prev) => ({ ...prev, [preview.sourceId]: data }));
+      const { job_id } = await parseSource(sourceId);
+      setJobIds((prev) => ({ ...prev, [sourceId]: job_id }));
     } catch (error) {
       console.error(error);
       window.alert("Parse failed; check backend logs.");
-    } finally {
-      setRunningId(null);
     }
   };
 
@@ -73,6 +85,10 @@ export default function ParsePage() {
       <div className="grid two">
         {sources.map((source) => {
           const result = results[source.id];
+          const jobId = Object.entries(jobIds).find(([sourceId]) => Number(sourceId) === source.id)?.[1];
+          const jobProgress = jobId ? progress[jobId] : null;
+          const isRunning = !!jobId;
+
           return (
             <div key={source.id} className="card" style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -83,9 +99,13 @@ export default function ParsePage() {
                 <button
                   className="btn"
                   onClick={() => handleShowPreview(source.id, source.name)}
-                  disabled={runningId === source.id || loadingPreview}
+                  disabled={isRunning || loadingPreview}
                 >
-                  {runningId === source.id ? "Parsing..." : loadingPreview ? "Loading preview..." : "Preview & Parse"}
+                  {isRunning
+                    ? `Parsing... ${jobProgress ? `${Math.round((jobProgress.current / jobProgress.total) * 100)}%` : ""}`
+                    : loadingPreview
+                    ? "Loading preview..."
+                    : "Preview & Parse"}
                 </button>
               </div>
               {result && (
@@ -121,7 +141,7 @@ export default function ParsePage() {
           sourceName={preview.sourceName}
           onConfirm={handleConfirmParse}
           onCancel={handleCancelPreview}
-          loading={runningId === preview.sourceId}
+          loading={!!jobIds[preview.sourceId]}
         />
       )}
     </div>

@@ -10,7 +10,7 @@ import ReactFlow, {
 } from "reactflow";
 
 import "reactflow/dist/style.css";
-import type { FamilyWithChildren, Person } from "../lib/types";
+import type { FamilyWithChildren, Person, RelationshipValidation } from "../lib/types";
 
 interface GraphViewProps {
   people: Person[];
@@ -18,26 +18,36 @@ interface GraphViewProps {
   onEdit: (person: Person) => void;
   onReparent: (childId: number, newParentId: number) => Promise<void> | void;
   onAddSpouse?: (person: Person) => void;
+  relationshipData: RelationshipValidation | null;
 }
 
 interface PersonNodeData {
   person: Person;
   onEdit: (person: Person) => void;
   onAddSpouse?: (person: Person) => void;
+  issues: string[];
 }
 
 const PersonNode = memo(({ data }: NodeProps<PersonNodeData>) => {
-  const { person, onEdit, onAddSpouse } = data;
+  const { person, onEdit, onAddSpouse, issues } = data;
+  const hasIssues = issues.length > 0;
+
   return (
     <div
       style={{
         padding: "0.75rem 1rem",
         borderRadius: "12px",
-        border: "1px solid rgba(255,255,255,0.1)",
+        border: `1px solid ${hasIssues ? "#ef4444" : "rgba(255,255,255,0.1)"}`,
         background: "rgba(15, 23, 42, 0.85)",
         minWidth: "220px",
       }}
+      title={hasIssues ? issues.join("\n") : undefined}
     >
+      {hasIssues && (
+        <div style={{ position: "absolute", top: "-8px", right: "-8px", background: "#ef4444", color: "white", borderRadius: "50%", width: "24px", height: "24px", display: "grid", placeItems: "center", fontWeight: "bold" }}>
+          !
+        </div>
+      )}
       <div style={{ fontWeight: 700 }}>{person.name}</div>
       <div style={{ fontSize: "0.8rem", opacity: 0.75 }}>Gen {person.gen}</div>
       <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
@@ -56,7 +66,7 @@ const PersonNode = memo(({ data }: NodeProps<PersonNodeData>) => {
 
 const nodeTypes = { person: PersonNode };
 
-export default function GraphView({ people, families, onEdit, onReparent, onAddSpouse }: GraphViewProps) {
+export default function GraphView({ people, families, onEdit, onReparent, onAddSpouse, relationshipData }: GraphViewProps) {
   const [instance, setInstance] = useState<ReactFlowInstance>();
 
   const nodes = useMemo<Node<PersonNodeData>[]>(() => {
@@ -73,28 +83,35 @@ export default function GraphView({ people, families, onEdit, onReparent, onAddS
       const spacingX = 260;
       const y = (gen - 1) * 180;
       persons.forEach((person, index) => {
+        const issues = relationshipData?.issues.filter(issue => issue.person_ids.includes(person.id)).map(issue => issue.message) ?? [];
+        if (relationshipData?.orphans.some(orphan => orphan.id === person.id)) {
+          issues.push("This person is an orphan.");
+        }
         results.push({
           id: `person-${person.id}`,
           type: "person",
           position: { x: index * spacingX, y },
-          data: { person, onEdit, onAddSpouse },
+          data: { person, onEdit, onAddSpouse, issues },
         });
       });
     }
     return results;
-  }, [onAddSpouse, onEdit, people]);
+  }, [onAddSpouse, onEdit, people, relationshipData]);
 
   const edges = useMemo<Edge[]>(() => {
     const list: Edge[] = [];
     for (const family of families) {
+      const familyIssues = relationshipData?.issues.filter(issue => issue.family_id === family.id) ?? [];
+      const hasIssues = familyIssues.length > 0;
+
       if (family.husband_id && family.wife_id) {
         list.push({
           id: `fam-${family.id}-spouse`,
           source: `person-${family.husband_id}`,
           target: `person-${family.wife_id}`,
           type: "smoothstep",
-          animated: false,
-          style: { stroke: "#7fb5ff" },
+          animated: hasIssues,
+          style: { stroke: hasIssues ? "#ef4444" : "#7fb5ff" },
         });
       }
       const parentId = family.husband_id ?? family.wife_id;
@@ -110,7 +127,7 @@ export default function GraphView({ people, families, onEdit, onReparent, onAddS
       }
     }
     return list;
-  }, [families]);
+  }, [families, relationshipData]);
 
   const handleInit = useCallback((flow: ReactFlowInstance) => {
     setInstance(flow);
@@ -118,7 +135,7 @@ export default function GraphView({ people, families, onEdit, onReparent, onAddS
   }, []);
 
   const handleNodeDragStop = useCallback(
-    async (_event: any, node: Node<PersonNodeData>) => {
+    async (_event: React.MouseEvent | React.TouchEvent, node: Node<PersonNodeData>) => {
       if (!instance) return;
       const movedPerson = node.data.person;
       const candidates = instance
@@ -163,5 +180,3 @@ export default function GraphView({ people, families, onEdit, onReparent, onAddS
     </div>
   );
 }
-
-

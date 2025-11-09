@@ -102,3 +102,38 @@ export interface ValidationWarning {
   person_ids: number[];
   family_id: number | null;
 }
+
+export interface RelationshipValidation {
+  orphans: Array<{ id: number; name: string; gen: number; birth: string | null; death: string | null; surname: string | null }>;
+  orphan_count: number;
+  total_people: number;
+  connected_people: number;
+  issues: Array<{ type: string; severity: string; message: string; person_ids: number[]; family_id: number | null }>;
+  issue_count: number;
+}
+
+export interface SamplePerson {
+  id: number;
+  name: string;
+  given: string | null;
+  surname: string | null;
+  birth: string | null;
+  death: string | null;
+  gen: number;
+}
+
+export interface SampleFamily {
+  id: number;
+  husband_id: number | null;
+  wife_id: number | null;
+  children_count: number;
+}
+
+export interface ParsePreview {
+  people: number;
+  families: number;
+  children: number;
+  flagged_lines: string[];
+  sample_people: SamplePerson[];
+  sample_families: SampleFamily[];
+}
