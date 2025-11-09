@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 
 import Sidebar from "./components/Sidebar";
 import Toolbar from "./components/Toolbar";
+import Notifications from "./components/Notifications";
 import { UndoProvider } from "./hooks/useUndoRedo";
 import { autosaveProject } from "./lib/api";
 import ExportPage from "./routes/Export";
@@ -15,6 +16,7 @@ import ReviewOCRPage from "./routes/ReviewOCR";
 import TablePage from "./routes/Table";
 import Upload from "./routes/Upload";
 import WarningsPage from "./routes/Warnings";
+import ImportPage from "./routes/Import";
 
 const AUTOSAVE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -44,6 +46,7 @@ export default function App() {
         <Sidebar />
         <main className="main-content">
           <Toolbar />
+          <Notifications />
           {lastAutosave && (
             <div style={{
               position: "fixed",
@@ -70,6 +73,7 @@ export default function App() {
             <Route path="/review" element={<ReviewPage />} />
             <Route path="/warnings" element={<WarningsPage />} />
             <Route path="/export" element={<ExportPage />} />
+            <Route path="/import" element={<ImportPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>

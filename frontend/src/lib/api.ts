@@ -32,13 +32,28 @@ export async function deleteSource(id: number): Promise<void> {
   await client.delete(`/files/${id}`);
 }
 
-export async function runOCR(sourceId: number, includeConfidence: boolean = false): Promise<{ pages: number; ocr_done: boolean }> {
-  const { data } = await client.post(`/ocr/${sourceId}`, { include_confidence: includeConfidence });
+export async function runOCR(sourceId: number): Promise<{ job_id: string }> {
+  const { data } = await client.post(`/ocr/${sourceId}`);
   return data;
 }
 
-export async function getOCRStatus(sourceId: number): Promise<{ pages: number; ocr_done: boolean }> {
-  const { data } = await client.get(`/ocr/${sourceId}`);
+export async function getOCRProgress(jobId: string): Promise<{
+  status: string;
+  progress: { percent: number; current_page: number; total_pages: number };
+  error: { message: string; suggestion: string };
+}> {
+  const { data } = await client.get(`/ocr/${jobId}/progress`);
+  return data;
+}
+
+export async function getOCRStatus(
+  sourceId: number,
+  jobId: string,
+  includeConfidence: boolean = false
+): Promise<{ pages: number; ocr_done: boolean }> {
+  const { data } = await client.get(`/ocr/${sourceId}/status`, {
+    params: { job_id: jobId, include_confidence: includeConfidence },
+  });
   return data;
 }
 
@@ -68,8 +83,18 @@ export async function parseSourcePreview(sourceId: number): Promise<{
   return data;
 }
 
-export async function parseSource(sourceId: number): Promise<{ people: number; families: number; flagged_lines: string[] }> {
-  const { data } = await client.post(`/parse/${sourceId}`);
+export async function parseSource(sourceId: number, page_indexes?: number[]): Promise<{ job_id: string }> {
+  const { data } = await client.post(`/parse/${sourceId}`, { page_indexes });
+  return data;
+}
+
+export async function getParseProgress(jobId: string): Promise<{
+  status: string;
+  progress: { current: number; total: number };
+  stats: { people: number; families: number; children: number; flagged_lines: string[] };
+  error: string;
+}> {
+  const { data } = await client.get(`/parse/${jobId}/progress`);
   return data;
 }
 
@@ -144,6 +169,29 @@ export async function openProject(filename: string): Promise<void> {
 export async function getValidationWarnings(): Promise<ValidationWarning[]> {
   const { data } = await client.get<ValidationWarning[]>("/validation/warnings");
   return data;
+}
+
+export async function getRelationshipValidation(): Promise<{
+  orphans: Array<{ id: number; name: string; gen: number; birth: string | null; death: string | null; surname: string | null }>;
+  orphan_count: number;
+  total_people: number;
+  connected_people: number;
+  issues: Array<{ type: string; severity: string; message: string; person_ids: number[]; family_id: number | null }>;
+  issue_count: number;
+}> {
+  const { data } = await client.get("/validation/relationships");
+  return data;
+}
+
+export async function getNotifications(): Promise<
+  { id: string; message: string; type: "success" | "error" }[]
+> {
+  const { data } = await client.get("/ocr/notifications");
+  return data;
+}
+
+export async function clearNotification(notificationId: string): Promise<void> {
+  await client.delete(`/ocr/notifications/${notificationId}`);
 }
 
 export default client;

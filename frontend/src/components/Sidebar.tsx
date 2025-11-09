@@ -11,6 +11,7 @@ const links = [
   { to: "/review", label: "Review Duplicates" },
   { to: "/warnings", label: "Validation Warnings" },
   { to: "/export", label: "Export" },
+  { to: "/import", label: "Import" },
 ];
 
 export default function Sidebar() {
