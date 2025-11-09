@@ -41,8 +41,8 @@ This file tracks potential fixes, improvements, and feature requests for the gen
 - [ ] Parse preview/confirmation dialog before committing to database
 - [x] Batch operations - COMPLETED 2025-11-08
   - ✅ Select multiple sources and OCR/delete all at once
-  - [ ] Bulk edit features (e.g., set sex for all "John" to M)
-  - [ ] Mass duplicate resolution (accept all suggestions)
+  - ✅ Bulk edit features (e.g., set sex for all "John" to M)
+  - ✅ Mass duplicate resolution (accept all suggestions)
 - [x] Enhanced undo/redo - COMPLETED 2025-11-08
   - ✅ Document what actions are undoable
   - ✅ Show undo history
@@ -120,6 +120,8 @@ This file tracks potential fixes, improvements, and feature requests for the gen
 - [x] Processing stage tracking for each source (uploaded, ocr_done, reviewed, parsed, edited, ready_to_export) (2025-11-08)
 - [x] Batch operations for OCR and delete with selection UI (2025-11-08)
 - [x] Enhanced undo/redo with history viewer and checkpoint feature (2025-11-08)
+- [x] Bulk edit features for setting fields on multiple people (2025-11-08)
+- [x] Mass duplicate resolution with auto-resolve functionality (2025-11-08)
 
 ## Notes
 

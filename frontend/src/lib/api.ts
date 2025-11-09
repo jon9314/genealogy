@@ -75,6 +75,22 @@ export async function deletePerson(id: number): Promise<void> {
   await client.delete(`/persons/${id}`);
 }
 
+export async function bulkUpdatePersons(personIds: number[], updates: Partial<UpdatePersonPayload>): Promise<{ count: number }> {
+  const { data } = await client.post("/persons/bulk-update", {
+    person_ids: personIds,
+    updates,
+  });
+  return data;
+}
+
+export async function bulkDeletePersons(personIds: number[], keepPersonId?: number): Promise<{ count: number; kept_id?: number }> {
+  const { data } = await client.post("/persons/bulk-delete", {
+    person_ids: personIds,
+    keep_person_id: keepPersonId,
+  });
+  return data;
+}
+
 export async function listFamilies(): Promise<FamilyWithChildren[]> {
   const { data } = await client.get<FamilyWithChildren[]>("/families");
   return data;

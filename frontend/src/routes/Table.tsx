@@ -9,7 +9,7 @@ import {
 
 import PersonForm from "../components/PersonForm";
 import { useUndoRedo } from "../hooks/useUndoRedo";
-import { deletePerson, listPersons, listSources, updatePerson } from "../lib/api";
+import { bulkUpdatePersons, deletePerson, listPersons, listSources, updatePerson } from "../lib/api";
 import type { Person, Source, UpdatePersonPayload } from "../lib/types";
 
 export default function TablePage() {
@@ -17,6 +17,9 @@ export default function TablePage() {
   const [sources, setSources] = useState<Source[]>([]);
   const [filters, setFilters] = useState({ gen: "", surname: "", sourceId: "", search: "" });
   const [editing, setEditing] = useState<Person | null>(null);
+  const [bulkEditMode, setBulkEditMode] = useState(false);
+  const [bulkEditField, setBulkEditField] = useState<"sex" | "surname">("sex");
+  const [bulkEditValue, setBulkEditValue] = useState("");
   const { push } = useUndoRedo();
 
   useEffect(() => {
@@ -50,7 +53,7 @@ export default function TablePage() {
       { header: "Birth", accessorKey: "birth" },
       { header: "Death", accessorKey: "death" },
       { header: "Surname", accessorKey: "surname" },
-      { header: "Source", accessorFn: (row) => sources.find((s) => s.id === row.source_id)?.name ?? "—" },
+      { header: "Source", accessorFn: (row) => sources.find((s) => s.id === row.source_id)?.name ?? "ï¿½" },
     ],
     [sources]
   );
@@ -109,6 +112,42 @@ export default function TablePage() {
     );
   };
 
+  const handleBulkEdit = async () => {
+    if (!bulkEditValue.trim()) {
+      window.alert("Please enter a value to set");
+      return;
+    }
+
+    if (filtered.length === 0) {
+      window.alert("No people match the current filters");
+      return;
+    }
+
+    const personIds = filtered.map((p) => p.id);
+    const updates = { [bulkEditField]: bulkEditValue };
+
+    const confirmMsg = `Set ${bulkEditField} to "${bulkEditValue}" for ${personIds.length} ${personIds.length === 1 ? "person" : "people"}?`;
+    if (!window.confirm(confirmMsg)) return;
+
+    await push(
+      {
+        label: `Bulk edit ${bulkEditField} for ${personIds.length} people`,
+        redo: async () => {
+          await bulkUpdatePersons(personIds, updates);
+          await refresh();
+        },
+        undo: async () => {
+          await refresh();
+        },
+      },
+      true
+    );
+
+    // Reset bulk edit state
+    setBulkEditMode(false);
+    setBulkEditValue("");
+  };
+
   return (
     <div className="grid" style={{ gap: "1.5rem" }}>
       <div className="card" style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
@@ -136,6 +175,47 @@ export default function TablePage() {
           <input value={filters.search} onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))} placeholder="Name or notes" />
         </div>
       </div>
+
+      {/* Bulk Edit Section */}
+      <div className="card">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+          <button
+            className={`btn ${bulkEditMode ? "" : "secondary"}`}
+            onClick={() => setBulkEditMode(!bulkEditMode)}
+          >
+            {bulkEditMode ? "Exit Bulk Edit" : "Bulk Edit Mode"}
+          </button>
+
+          {bulkEditMode && (
+            <>
+              <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flex: 1 }}>
+                <span>Set</span>
+                <select
+                  value={bulkEditField}
+                  onChange={(e) => setBulkEditField(e.target.value as "sex" | "surname")}
+                  style={{ padding: "0.5rem" }}
+                >
+                  <option value="sex">Sex</option>
+                  <option value="surname">Surname</option>
+                </select>
+                <span>to</span>
+                <input
+                  type="text"
+                  value={bulkEditValue}
+                  onChange={(e) => setBulkEditValue(e.target.value)}
+                  placeholder={bulkEditField === "sex" ? "M or F" : "SURNAME"}
+                  style={{ flex: 1, maxWidth: "200px" }}
+                />
+                <span style={{ opacity: 0.7 }}>for {filtered.length} {filtered.length === 1 ? "person" : "people"}</span>
+              </div>
+              <button className="btn" onClick={handleBulkEdit} disabled={!bulkEditValue.trim()}>
+                Apply to {filtered.length}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
       <div className="table-wrapper">
         <table className="table">
           <thead>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { useUndoRedo } from "../hooks/useUndoRedo";
-import { deletePerson, listPersons } from "../lib/api";
+import { bulkDeletePersons, deletePerson, listPersons } from "../lib/api";
 import type { Person } from "../lib/types";
 
 interface DuplicateGroup {
@@ -49,28 +49,121 @@ export default function ReviewPage() {
     );
   };
 
+  const handleResolveGroup = async (group: DuplicateGroup) => {
+    if (group.members.length < 2) return;
+
+    // Keep the first person (usually has most data), delete the rest
+    const keepPerson = group.members[0];
+    const deleteIds = group.members.slice(1).map((m) => m.id);
+
+    const confirmMsg = `Keep "${keepPerson.name}" and delete ${deleteIds.length} duplicate${deleteIds.length > 1 ? "s" : ""}?`;
+    if (!window.confirm(confirmMsg)) return;
+
+    await push(
+      {
+        label: `Resolve duplicates for ${keepPerson.name}`,
+        redo: async () => {
+          await bulkDeletePersons(deleteIds, keepPerson.id);
+          setPersons((prev) => prev.filter((p) => !deleteIds.includes(p.id)));
+          setDismissed((prev) => new Set(prev).add(group.key));
+        },
+        undo: async () => {
+          const fresh = await listPersons();
+          setPersons(fresh);
+          setDismissed((prev) => {
+            const next = new Set(prev);
+            next.delete(group.key);
+            return next;
+          });
+        },
+      },
+      true
+    );
+  };
+
+  const handleResolveAll = async () => {
+    const activeGroups = duplicates.filter((group) => !dismissed.has(group.key));
+
+    if (activeGroups.length === 0) {
+      window.alert("No duplicate groups to resolve");
+      return;
+    }
+
+    const totalDuplicates = activeGroups.reduce((sum, g) => sum + (g.members.length - 1), 0);
+    const confirmMsg = `Auto-resolve ${activeGroups.length} duplicate groups (keeping first in each group, deleting ${totalDuplicates} duplicates)?`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    await push(
+      {
+        label: `Auto-resolve ${activeGroups.length} duplicate groups`,
+        redo: async () => {
+          for (const group of activeGroups) {
+            if (group.members.length < 2) continue;
+            const deleteIds = group.members.slice(1).map((m) => m.id);
+            await bulkDeletePersons(deleteIds, group.members[0].id);
+          }
+          const fresh = await listPersons();
+          setPersons(fresh);
+          // Mark all groups as dismissed
+          setDismissed((prev) => {
+            const next = new Set(prev);
+            activeGroups.forEach((g) => next.add(g.key));
+            return next;
+          });
+        },
+        undo: async () => {
+          const fresh = await listPersons();
+          setPersons(fresh);
+          setDismissed((prev) => {
+            const next = new Set(prev);
+            activeGroups.forEach((g) => next.delete(g.key));
+            return next;
+          });
+        },
+      },
+      true
+    );
+  };
+
+  const activeGroups = duplicates.filter((group) => !dismissed.has(group.key));
+
   return (
     <div className="grid" style={{ gap: "1.5rem" }}>
       <div className="card">
-        <h2>Potential duplicates</h2>
-        <p>
-          Review potential duplicates grouped by surname, given name, and birth year.
-          The parser uses fuzzy matching (±2 year tolerance, phonetic name matching) to reduce duplicates during import.
-          Manually resolve any remaining duplicates by editing or deleting extras.
-        </p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: "1rem", flexWrap: "wrap" }}>
+          <div>
+            <h2>Potential duplicates</h2>
+            <p>
+              Review potential duplicates grouped by surname, given name, and birth year.
+              The parser uses fuzzy matching (±2 year tolerance, phonetic name matching) to reduce duplicates during import.
+              Manually resolve any remaining duplicates by editing or deleting extras.
+            </p>
+          </div>
+          {activeGroups.length > 0 && (
+            <button className="btn" onClick={handleResolveAll}>
+              Auto-Resolve All ({activeGroups.length} groups)
+            </button>
+          )}
+        </div>
       </div>
       {duplicates
         .filter((group) => !dismissed.has(group.key))
         .map((group) => (
           <div key={group.key} className="card">
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
               <div>
                 <div className="badge">Key {group.key}</div>
                 <div>{group.members.length} matches</div>
               </div>
-              <button className="btn secondary" onClick={() => setDismissed((prev) => new Set(prev).add(group.key))}>
-                Mark resolved
-              </button>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <button className="btn" onClick={() => void handleResolveGroup(group)}>
+                  Auto-Resolve (keep first)
+                </button>
+                <button className="btn secondary" onClick={() => setDismissed((prev) => new Set(prev).add(group.key))}>
+                  Mark resolved
+                </button>
+              </div>
             </div>
             <div className="grid" style={{ gap: "0.75rem", marginTop: "1rem" }}>
               {group.members.map((member) => (
