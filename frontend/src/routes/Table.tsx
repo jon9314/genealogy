@@ -7,6 +7,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 
+import Modal from "../components/Modal";
 import PersonForm from "../components/PersonForm";
 import { useUndoRedo } from "../hooks/useUndoRedo";
 import { bulkUpdatePersons, deletePerson, listPersons, listSources, updatePerson } from "../lib/api";
@@ -152,16 +153,16 @@ export default function TablePage() {
     <div className="grid" style={{ gap: "1.5rem" }}>
       <div className="card" style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
         <div>
-          <label>Generation</label>
-          <input value={filters.gen} onChange={(e) => setFilters((prev) => ({ ...prev, gen: e.target.value }))} placeholder="1" />
+          <label htmlFor="filter-gen">Generation</label>
+          <input id="filter-gen" value={filters.gen} onChange={(e) => setFilters((prev) => ({ ...prev, gen: e.target.value }))} placeholder="1" />
         </div>
         <div>
-          <label>Surname</label>
-          <input value={filters.surname} onChange={(e) => setFilters((prev) => ({ ...prev, surname: e.target.value }))} placeholder="NEWCOMB" />
+          <label htmlFor="filter-surname">Surname</label>
+          <input id="filter-surname" value={filters.surname} onChange={(e) => setFilters((prev) => ({ ...prev, surname: e.target.value }))} placeholder="NEWCOMB" />
         </div>
         <div>
-          <label>Source</label>
-          <select value={filters.sourceId} onChange={(e) => setFilters((prev) => ({ ...prev, sourceId: e.target.value }))}>
+          <label htmlFor="filter-source">Source</label>
+          <select id="filter-source" value={filters.sourceId} onChange={(e) => setFilters((prev) => ({ ...prev, sourceId: e.target.value }))}>
             <option value="">All</option>
             {sources.map((source) => (
               <option key={source.id} value={source.id}>
@@ -171,8 +172,8 @@ export default function TablePage() {
           </select>
         </div>
         <div style={{ flex: 1 }}>
-          <label>Search</label>
-          <input value={filters.search} onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))} placeholder="Name or notes" />
+          <label htmlFor="filter-search">Search</label>
+          <input id="filter-search" value={filters.search} onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))} placeholder="Name or notes" />
         </div>
       </div>
 
@@ -251,11 +252,9 @@ export default function TablePage() {
           </tbody>
         </table>
       </div>
-      {editing && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "grid", placeItems: "center" }}>
-          <PersonForm person={editing} onSubmit={handleUpdate} onClose={() => setEditing(null)} />
-        </div>
-      )}
+      <Modal isOpen={!!editing} onClose={() => setEditing(null)} title={`Edit ${editing?.name || 'Person'}`}>
+        {editing && <PersonForm person={editing} onSubmit={handleUpdate} onClose={() => setEditing(null)} />}
+      </Modal>
     </div>
   );
 }

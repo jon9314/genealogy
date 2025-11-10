@@ -54,7 +54,7 @@ async def rollback_import(
         if not source:
             raise HTTPException(status_code=404, detail="Import source not found")
 
-        if not source.filename.startswith("GEDCOM Import"):
+        if not source.name.startswith("GEDCOM Import"):
             raise HTTPException(
                 status_code=400,
                 detail="Can only rollback GEDCOM imports, not OCR sources"

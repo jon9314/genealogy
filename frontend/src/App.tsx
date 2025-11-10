@@ -6,6 +6,7 @@ import Toolbar from "./components/Toolbar";
 import Notifications from "./components/Notifications";
 import { UndoProvider } from "./hooks/useUndoRedo";
 import { autosaveProject } from "./lib/api";
+import BackupsPage from "./routes/Backups";
 import ExportPage from "./routes/Export";
 import GraphPage from "./routes/Graph";
 import Home from "./routes/Home";
@@ -74,6 +75,7 @@ export default function App() {
             <Route path="/graph" element={<GraphPage />} />
             <Route path="/review" element={<ReviewPage />} />
             <Route path="/warnings" element={<WarningsPage />} />
+            <Route path="/backups" element={<BackupsPage />} />
             <Route path="/export" element={<ExportPage />} />
             <Route path="/import" element={<ImportPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />

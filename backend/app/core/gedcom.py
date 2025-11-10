@@ -149,7 +149,7 @@ def import_gedcom(session: Session, gedcom_data: str) -> dict:
     Returns dict with import statistics and rollback ID for undo functionality.
     Raises ValueError for invalid GEDCOM data.
     """
-    from io import StringIO
+    from io import BytesIO
     from ged4py import GedcomReader
     from .models import Source
 
@@ -161,17 +161,18 @@ def import_gedcom(session: Session, gedcom_data: str) -> dict:
         raise ValueError("Invalid GEDCOM file: missing header")
 
     try:
-        # Fix: GedcomReader requires file-like object, not string
-        reader = GedcomReader(StringIO(gedcom_data))
+        # Fix: GedcomReader requires binary file-like object
+        gedcom_bytes = gedcom_data.encode('utf-8')
+        reader = GedcomReader(BytesIO(gedcom_bytes))
     except Exception as e:
         raise ValueError(f"Failed to parse GEDCOM file: {str(e)}")
 
     # Create a synthetic source for imported records
     import_source = Source(
-        filename="GEDCOM Import",
-        filepath=f"import_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.ged",
+        name="GEDCOM Import",
+        path=f"import_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.ged",
         ocr_done=True,
-        parse_done=True
+        stage="parsed"
     )
     session.add(import_source)
     session.flush()
@@ -189,7 +190,7 @@ def import_gedcom(session: Session, gedcom_data: str) -> dict:
         # First pass: import all individuals and build xref mapping
         for record in reader.records0("INDI"):
             try:
-                xref = record.xref
+                xref = record.xref_id
 
                 name_record = record.sub_record("NAME")
                 name = name_record.value if name_record else "Unknown"
@@ -268,13 +269,13 @@ def import_gedcom(session: Session, gedcom_data: str) -> dict:
                     xref_to_person_id[xref] = new_person.id
                     imported_persons.append({"id": new_person.id, "action": "created", "name": name})
             except Exception as e:
-                errors.append(f"Error importing person {record.xref}: {str(e)}")
+                errors.append(f"Error importing person {record.xref_id}: {str(e)}")
                 continue
 
         # Second pass: import families with proper ID mapping
         for record in reader.records0("FAM"):
             try:
-                xref = record.xref
+                xref = record.xref_id
 
                 husband_xref = record.sub_record("HUSB").value if record.sub_record("HUSB") else None
                 wife_xref = record.sub_record("WIFE").value if record.sub_record("WIFE") else None
@@ -353,7 +354,7 @@ def import_gedcom(session: Session, gedcom_data: str) -> dict:
                         errors.append(f"Family {xref}: Child {child_xref} not found")
 
             except Exception as e:
-                errors.append(f"Error importing family {record.xref}: {str(e)}")
+                errors.append(f"Error importing family {record.xref_id}: {str(e)}")
                 continue
 
         # Commit the import

@@ -186,6 +186,22 @@ export async function openProject(filename: string): Promise<void> {
   await client.post("/project/open", { filename });
 }
 
+export interface Backup {
+  filename: string;
+  timestamp: string;
+  size_bytes: number;
+  is_autosave: boolean;
+}
+
+export async function listBackups(): Promise<Backup[]> {
+  const { data } = await client.get<{ backups: Backup[] }>("/project/backups");
+  return data.backups;
+}
+
+export async function restoreBackup(filename: string): Promise<void> {
+  await client.post("/project/restore", { filename });
+}
+
 export async function getValidationWarnings(): Promise<ValidationWarning[]> {
   const { data } = await client.get<ValidationWarning[]>("/validation/warnings");
   return data;

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -124,6 +125,72 @@ def open_project(payload: ProjectOpenRequest, session: Session = Depends(get_ses
     session.commit()
 
     return JSONResponse({"status": "opened", "filename": payload.filename})
+
+
+@router.get("/backups")
+def list_backups() -> JSONResponse:
+    """List all available backups (autosaves and manual saves)."""
+    settings = get_settings()
+
+    backups = []
+    for filepath in settings.project_dir.glob("*.json"):
+        stat = filepath.stat()
+        backups.append({
+            "filename": filepath.name,
+            "timestamp": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+            "size_bytes": stat.st_size,
+            "is_autosave": filepath.name.startswith("autosave-")
+        })
+
+    # Sort by timestamp, newest first
+    backups.sort(key=lambda x: x["timestamp"], reverse=True)
+
+    return JSONResponse({"backups": backups})
+
+
+@router.post("/restore")
+def restore_backup(payload: ProjectOpenRequest, session: Session = Depends(get_session)) -> JSONResponse:
+    """Restore from a specific backup file."""
+    settings = get_settings()
+    target = settings.project_dir / payload.filename
+    if not target.exists():
+        raise HTTPException(status_code=404, detail="Backup file not found")
+
+    with target.open("r", encoding="utf-8") as fp:
+        raw = json.load(fp)
+
+    project = ProjectPayload(**raw)
+
+    # Clear existing data
+    session.exec(delete(Child))
+    session.exec(delete(Family))
+    session.exec(delete(Person))
+    session.exec(delete(PageText))
+    session.exec(delete(Source))
+    session.commit()
+
+    # Restore data from backup
+    for source in project.sources:
+        session.add(Source(**source.model_dump()))
+    session.commit()
+
+    for page in project.pages:
+        session.add(PageText(**page.model_dump()))
+    session.commit()
+
+    for person in project.persons:
+        session.add(Person(**person.model_dump()))
+    session.commit()
+
+    for family in project.families:
+        session.add(Family(**family.model_dump()))
+    session.commit()
+
+    for child in project.children:
+        session.add(Child(**child.model_dump()))
+    session.commit()
+
+    return JSONResponse({"status": "restored", "filename": payload.filename})
 
 
 def _timestamped_filename(stem: str, suffix: str) -> str:

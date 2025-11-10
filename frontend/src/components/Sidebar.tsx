@@ -11,6 +11,7 @@ const links = [
   { to: "/graph", label: "Graph" },
   { to: "/review", label: "Review Duplicates" },
   { to: "/warnings", label: "Validation Warnings" },
+  { to: "/backups", label: "Backups" },
   { to: "/export", label: "Export" },
   { to: "/import", label: "Import" },
 ];

@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 
 import GraphView from "../components/GraphView";
+import Modal from "../components/Modal";
 import PersonForm from "../components/PersonForm";
 import { useUndoRedo } from "../hooks/useUndoRedo";
 import { listFamilies, listPersons, reparent, updatePerson, getRelationshipValidation } from "../lib/api";
@@ -91,11 +92,9 @@ export default function GraphPage() {
         onReparent={handleReparent}
         relationshipData={relationshipData}
       />
-      {editing && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "grid", placeItems: "center" }}>
-          <PersonForm person={editing} onSubmit={handleEdit} onClose={() => setEditing(null)} />
-        </div>
-      )}
+      <Modal isOpen={!!editing} onClose={() => setEditing(null)} title={`Edit ${editing?.name || 'Person'}`}>
+        {editing && <PersonForm person={editing} onSubmit={handleEdit} onClose={() => setEditing(null)} />}
+      </Modal>
     </div>
   );
 }

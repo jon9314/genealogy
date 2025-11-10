@@ -68,7 +68,10 @@ sp-Abigail ENGLISH-973 (1724)
     families = session.exec(select(Family)).all()
     children = session.exec(select(Child)).all()
 
-    assert stats == {"people": 9, "families": len(families), "children": len(children)}
+    assert stats["people"] == 9
+    assert stats["families"] == len(families)
+    assert stats["children"] == len(children)
+    assert "flagged_lines" in stats
 
     andrew = _get_person(session, given="Andrew", surname="NEWCOMB", birth_contains="1640")
     assert andrew.gen == 1

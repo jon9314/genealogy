@@ -21,7 +21,6 @@ dependencies = [
     "pytesseract>=0.3.10",
     "Pillow>=10.0",
     "jellyfish>=1.0",
-    "gedcom-validator>=0.1.0",
 ]
 
 [project.optional-dependencies]

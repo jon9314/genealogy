@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Dict, Iterator, List, Optional, Tuple, Callable
 
 from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 from sqlmodel import Session
 
 from .models import Child, Family, Person, Source

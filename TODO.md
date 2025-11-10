@@ -100,10 +100,13 @@ This file tracks potential fixes, improvements, and feature requests for the gen
 - [ ] Quick Start wizard for first-time users
 
 ### Data Safety & Backup
-- [ ] Automatic project backups
-  - Auto-save every N minutes
-  - Keep last 5-10 versions with timestamps
-  - Easy restore from backup
+- [x] Automatic project backups - COMPLETED 2025-11-10
+  - ✅ Auto-save every 5 minutes
+  - ✅ Keep last 5 versions with timestamps
+  - ✅ Easy restore from backup UI with visual file list
+  - ✅ Support both autosaves and manual saves
+  - ✅ Display file size, timestamp, and relative time
+  - ✅ Confirmation dialog before restore
 - [ ] Export validation
   - Test GEDCOM files against validators before download
   - Report validation errors/warnings
@@ -133,6 +136,11 @@ This file tracks potential fixes, improvements, and feature requests for the gen
 - [x] Bulk edit features for setting fields on multiple people (2025-11-08)
 - [x] Mass duplicate resolution with auto-resolve functionality (2025-11-08)
 - [x] Parse preview dialog with confirmation before committing to database (2025-11-08)
+- [x] Frontend test infrastructure with Vitest and React Testing Library (2025-11-10)
+- [x] Comprehensive component tests for Table, GraphView, Review, Modal (60 tests total) (2025-11-10)
+- [x] Accessibility improvements: label associations, keyboard navigation, focus management (2025-11-10)
+- [x] Accessible Modal component with Escape key, Tab trapping, and ARIA attributes (2025-11-10)
+- [x] Automatic backup management with restore UI (2025-11-10)
 
 ## Notes
 

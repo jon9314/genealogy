@@ -70,50 +70,50 @@ export default function PersonForm({ person, onSubmit, onClose }: Props) {
           </div>
         )}
         <div>
-          <label>Name</label>
-          <input value={form.name ?? ""} onChange={(e) => handleChange("name", e.target.value)} required />
+          <label htmlFor="person-name">Name</label>
+          <input id="person-name" value={form.name ?? ""} onChange={(e) => handleChange("name", e.target.value)} required />
         </div>
         <div className="grid two">
           <div>
-            <label>Given</label>
-            <input value={form.given ?? ""} onChange={(e) => handleChange("given", e.target.value)} />
+            <label htmlFor="person-given">Given</label>
+            <input id="person-given" value={form.given ?? ""} onChange={(e) => handleChange("given", e.target.value)} />
           </div>
           <div>
-            <label>Surname</label>
-            <input value={form.surname ?? ""} onChange={(e) => handleChange("surname", e.target.value)} />
-          </div>
-        </div>
-        <div className="grid two">
-          <div>
-            <label>Birth</label>
-            <input value={form.birth ?? ""} onChange={(e) => handleChange("birth", e.target.value)} />
-          </div>
-          <div>
-            <label>Death</label>
-            <input value={form.death ?? ""} onChange={(e) => handleChange("death", e.target.value)} />
+            <label htmlFor="person-surname">Surname</label>
+            <input id="person-surname" value={form.surname ?? ""} onChange={(e) => handleChange("surname", e.target.value)} />
           </div>
         </div>
         <div className="grid two">
           <div>
-            <label>Sex</label>
-            <select value={form.sex ?? ""} onChange={(e) => handleChange("sex", e.target.value)}>
+            <label htmlFor="person-birth">Birth</label>
+            <input id="person-birth" value={form.birth ?? ""} onChange={(e) => handleChange("birth", e.target.value)} />
+          </div>
+          <div>
+            <label htmlFor="person-death">Death</label>
+            <input id="person-death" value={form.death ?? ""} onChange={(e) => handleChange("death", e.target.value)} />
+          </div>
+        </div>
+        <div className="grid two">
+          <div>
+            <label htmlFor="person-sex">Sex</label>
+            <select id="person-sex" value={form.sex ?? ""} onChange={(e) => handleChange("sex", e.target.value)}>
               <option value="">Unknown</option>
               <option value="M">Male</option>
               <option value="F">Female</option>
             </select>
           </div>
           <div>
-            <label>Title</label>
-            <input value={form.title ?? ""} onChange={(e) => handleChange("title", e.target.value)} />
+            <label htmlFor="person-title">Title</label>
+            <input id="person-title" value={form.title ?? ""} onChange={(e) => handleChange("title", e.target.value)} />
           </div>
         </div>
         <div>
-          <label>Chart ID</label>
-          <input value={form.chart_id ?? ""} onChange={(e) => handleChange("chart_id", e.target.value)} />
+          <label htmlFor="person-chart-id">Chart ID</label>
+          <input id="person-chart-id" value={form.chart_id ?? ""} onChange={(e) => handleChange("chart_id", e.target.value)} />
         </div>
         <div>
-          <label>Notes</label>
-          <textarea rows={4} value={form.notes ?? ""} onChange={(e) => handleChange("notes", e.target.value)} />
+          <label htmlFor="person-notes">Notes</label>
+          <textarea id="person-notes" rows={4} value={form.notes ?? ""} onChange={(e) => handleChange("notes", e.target.value)} />
         </div>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
           <button type="button" className="btn secondary" onClick={onClose}>

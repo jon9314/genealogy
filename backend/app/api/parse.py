@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import threading
 import uuid
-from typing import Dict, List
+from typing import Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlmodel import Session, delete, select
 
@@ -197,7 +197,7 @@ def check_parser_versions(session: Session = Depends(get_session)) -> JSONRespon
     """
     from ..core.parser import PARSER_VERSION
 
-    sources = session.exec(select(Source).where(Source.parse_done == True)).all()
+    sources = session.exec(select(Source).where(Source.stage == "parsed")).all()
 
     outdated_sources = []
     current_sources = []
