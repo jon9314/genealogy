@@ -14,14 +14,14 @@ from .models import Child, Family, Person, Source
 
 LOGGER = logging.getLogger(__name__)
 
-PARSER_VERSION = "1.0.0"
+PARSER_VERSION = "1.1.0"
 
 DASH_VARIANTS = "\u2010\u2011\u2012\u2013\u2014\u2015\u2212"
 # Primary pattern: II-- Name (double dash format)
 PERSON_PATTERN = re.compile(r"^\s*(?:[xX×✗✘]+\s*){0,2}\s*([0-9Il|O]{1,2})\s*--\s+(.*)$")
 # Alternative pattern: 1. Name or I. Name (period format)
 PERSON_PATTERN_ALT = re.compile(r"^\s*(?:[xX×✗✘]+\s*){0,2}\s*([IVXivx0-9]{1,3})\.\s+(.*)$")
-SPOUSE_PATTERN = re.compile(r"^\s*sp-\s+(.*)$", re.IGNORECASE)
+SPOUSE_PATTERN = re.compile(r"^\s*sp-\s*(.*)$", re.IGNORECASE)
 HEADER_PATTERNS = [
     re.compile(r"^\s*Page\s+\d+\s*$", re.IGNORECASE),
     re.compile(
@@ -96,7 +96,10 @@ def normalize_ocr_text(page: str) -> List[str]:
     for ch in DASH_VARIANTS:
         text_value = text_value.replace(ch, "-")
     text_value = re.sub(r"(?m)^(\s*sp)\s*[-~]\s*", r"\1- ", text_value, flags=re.IGNORECASE)
-    text_value = re.sub(r"(?m)^(\s*\d+)\s*-+\s*", r"\1-- ", text_value)
+    # Normalize inline sp- patterns (ensure space before sp- when it appears mid-line)
+    text_value = re.sub(r"(\))(\s*)sp-", r"\1 sp-", text_value, flags=re.IGNORECASE)
+    # Normalize generation markers: handle both correct (--) and common OCR errors (*-, +-, etc.)
+    text_value = re.sub(r"(?m)^(\s*\d+)\s*[*+\-]{1,2}\s*", r"\1-- ", text_value)
 
     lines: List[str] = []
     buffer: Optional[str] = None
