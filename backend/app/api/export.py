@@ -19,10 +19,10 @@ def _timestamped_filename(stem: str, suffix: str) -> str:
     return f"{stem}-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}.{suffix}"
 
 
-@router.post("/gedcom")
+@router.post("/gedcom", response_model=None)
 def export_gedcom_file(
     preview: bool = False, session: Session = Depends(get_session)
-) -> StreamingResponse | JSONResponse:
+):
     filename = _timestamped_filename("genealogy", "ged")
     buffer = io.StringIO()
     export_gedcom(session, buffer, filename)

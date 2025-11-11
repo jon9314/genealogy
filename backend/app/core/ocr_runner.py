@@ -186,6 +186,12 @@ def get_ocr_job_status(job_id: str) -> Dict:
     if not job:
         raise ValueError("Job not found")
 
+    # Build a JSON-serializable response (exclude non-serializable fields like 'process')
+    response = {
+        "status": job["status"],
+        "source_name": job.get("source_name", ""),
+    }
+
     if job["status"] == "running":
         progress = {}
         with open(job["stderr_path"], "r") as f:
@@ -207,9 +213,11 @@ def get_ocr_job_status(job_id: str) -> Dict:
                         }
                     except (ValueError, IndexError):
                         pass # Ignore parsing errors
-        job["progress"] = progress
+        response["progress"] = progress
+    elif job["status"] == "failed":
+        response["error"] = job.get("error", {"message": "Unknown error", "suggestion": None})
 
-    return job
+    return response
 
 
 def get_ocr_result(job_id: str) -> list[str]:

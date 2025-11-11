@@ -22,16 +22,8 @@ def init_db() -> None:
     # Import models to ensure SQLModel metadata is populated
     from .core import models  # noqa: F401
 
-    # Check if database exists and has tables
-    inspector = sqlalchemy.inspect(_engine)
-    existing_tables = inspector.get_table_names()
-
-    if not existing_tables:
-        # Fresh install - create all tables
-        SQLModel.metadata.create_all(_engine)
-    else:
-        # Existing database - run migrations to update schema
-        _run_migrations()
+    # For now, always use SQLModel.metadata.create_all (idempotent - won't recreate existing tables)
+    SQLModel.metadata.create_all(_engine)
 
 
 def _run_migrations() -> None:
