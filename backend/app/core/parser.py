@@ -14,7 +14,7 @@ from .models import Child, Family, Person, Source
 
 LOGGER = logging.getLogger(__name__)
 
-PARSER_VERSION = "1.1.2"
+PARSER_VERSION = "2.0.0"
 
 DASH_VARIANTS = "\u2010\u2011\u2012\u2013\u2014\u2015\u2212"
 # Primary pattern: II-- Name (double dash format)
@@ -327,19 +327,35 @@ class ParseStats:
     flagged_lines: list
 
 
-def parse_ocr_text(
+@dataclass
+class PersonRecord:
+    """Intermediate representation of a person during parsing."""
+    person_id: int
+    gen: int
+    page_index: int
+    line_index: int
+    is_spouse: bool  # True if this person was parsed from a spouse line
+
+
+def extract_persons_pass1(
     session: Session,
     *,
     source_id: int,
     pages: List[str],
     page_indexes: Optional[List[int]] = None,
     progress_callback: Optional[Callable[[int, int], None]] = None,
-) -> Dict[str, int]:
+) -> Tuple[List[PersonRecord], List[str]]:
+    """
+    Pass 1: Extract all Person entities from OCR text.
+    Returns list of PersonRecord objects and flagged lines.
+    Does NOT create families or child links.
+    """
     _ensure_person_approx_column(session)
 
-    stats = ParseStats(set(), set(), set(), [])
-    generation_stack: List[GenerationContext] = []
-    
+    person_records: List[PersonRecord] = []
+    flagged_lines: List[str] = []
+    last_principal_person: Optional[PersonRecord] = None  # Track for spouse attachment
+
     lines = list(iter_lines(pages, page_indexes))
     total_lines = len(lines)
 
@@ -357,15 +373,11 @@ def parse_ocr_text(
             # Try to parse generation number
             gen = None
             if alt_match:
-                # Alternative format (1. or I.)
-                # Try as integer first
                 if raw_gen.isdigit():
                     gen = int(raw_gen)
                 else:
-                    # Try as Roman numeral
                     gen = _roman_to_int(raw_gen)
             else:
-                # Standard format (II--)
                 normalized_gen = raw_gen.translate(GEN_CHAR_MAP)
                 normalized_gen = re.sub(r'\D', '', normalized_gen)
                 if normalized_gen:
@@ -373,17 +385,13 @@ def parse_ocr_text(
 
             if gen is None:
                 LOGGER.debug('Skipping line with unparseable generation token: %s', raw_line)
-                stats.flagged_lines.append(raw_line)
+                flagged_lines.append(raw_line)
                 continue
 
             text_value = match.group(2).strip()
-
-            while generation_stack and generation_stack[-1].gen >= gen:
-                generation_stack.pop()
-
-            parent_context = generation_stack[-1] if generation_stack else None
             data = _parse_person_entry(text_value)
             line_key = _make_line_key(source_id, page_index, line_index, raw_line)
+
             person = Person.upsert_from_parse(
                 session,
                 source_id,
@@ -398,68 +406,32 @@ def parse_ocr_text(
                 approx=data["approx"],
             )
             _update_person_location(person, page_index, line_index, session)
+
             if person.id:
-                stats.people_seen.add(person.id)
-
-            context = GenerationContext(gen, person)
-            generation_stack.append(context)
-
-            if parent_context and gen == parent_context.gen + 1:
-                family = parent_context.family
-                if family is None:
-                    family_key = _family_line_key(
-                        source_id,
-                        page_index,
-                        line_index,
-                        parent_context.person.id,
-                        parent_context.person.id,
-                    )
-                    family = Family.ensure_for_single_parent(
-                        session,
-                        source_id,
-                        parent_context.person.id,
-                        line_key=family_key,
-                        approx=bool(parent_context.person.approx),
-                        page_index=page_index,
-                    )
-                    parent_context.family = family
-                if family and family.id:
-                    stats.families_seen.add(family.id)
-                    link_key = _child_link_key(
-                        source_id,
-                        page_index,
-                        line_index,
-                        person.id,
-                        family.id,
-                    )
-                    link = Child.link(
-                        session,
-                        family.id,
-                        person.id,
-                        line_key=link_key,
-                        approx=data["approx"],
-                        page_index=page_index,
-                    )
-                    if link.id:
-                        stats.children_seen.add(link.id)
-                    if data["approx"] and family.approx is not True:
-                        family.approx = True
-                        session.add(family)
+                record = PersonRecord(
+                    person_id=person.id,
+                    gen=gen,
+                    page_index=page_index,
+                    line_index=line_index,
+                    is_spouse=False,
+                )
+                person_records.append(record)
+                last_principal_person = record
             continue
 
         spouse_match = SPOUSE_PATTERN.match(raw_line)
-        if spouse_match and generation_stack:
-            context = generation_stack[-1]
+        if spouse_match and last_principal_person:
             spouse_text = spouse_match.group(1).strip()
             data = _parse_person_entry(spouse_text)
             line_key = _make_line_key(source_id, page_index, line_index, raw_line)
+
             spouse = Person.upsert_from_parse(
                 session,
                 source_id,
                 data["given"],
                 data["surname"],
                 name=data["display"],
-                gen=context.gen,
+                gen=last_principal_person.gen,  # Same gen as spouse
                 title=data["title"],
                 notes=data["notes"],
                 vitals=data["vitals"],
@@ -467,66 +439,238 @@ def parse_ocr_text(
                 approx=data["approx"],
             )
             _update_person_location(spouse, page_index, line_index, session)
-            if spouse.id:
-                stats.people_seen.add(spouse.id)
 
-            approx_flag = bool(context.person.approx) or data["approx"]
-            family = context.family
-            if family and family.is_single_parent:
-                pair = sorted((context.person.id, spouse.id))
-                family.husband_id = pair[0]
-                family.wife_id = pair[1]
-                family.is_single_parent = False
-                if not family.line_key:
-                    family.line_key = _family_line_key(
+            if spouse.id:
+                record = PersonRecord(
+                    person_id=spouse.id,
+                    gen=last_principal_person.gen,
+                    page_index=page_index,
+                    line_index=line_index,
+                    is_spouse=True,
+                )
+                person_records.append(record)
+            continue
+
+    session.commit()
+    return person_records, flagged_lines
+
+
+def build_relationships_pass2(
+    session: Session,
+    *,
+    source_id: int,
+    person_records: List[PersonRecord],
+) -> Tuple[set, set]:
+    """
+    Pass 2: Build family relationships and child links.
+    Uses generation-level tracking instead of stack-based approach.
+    Returns (families_seen, children_seen) sets.
+    """
+    families_seen: set = set()
+    children_seen: set = set()
+
+    # Track the most recent person at each generation level
+    # Key: generation number, Value: PersonRecord
+    gen_tracker: Dict[int, PersonRecord] = {}
+
+    # Track families we've created to avoid duplicates
+    # Key: (person_id, spouse_id), Value: Family
+    family_cache: Dict[Tuple[int, int], Family] = {}
+
+    for record in person_records:
+        gen = record.gen
+        person_id = record.person_id
+        page_index = record.page_index
+
+        # Get person object for approx flag
+        person = session.get(Person, person_id)
+        if not person:
+            continue
+
+        if record.is_spouse:
+            # This is a spouse - find their principal person (should be previous non-spouse at same gen)
+            # Look backward for the most recent non-spouse at this generation
+            principal_record = None
+            for prev_record in reversed(person_records[:person_records.index(record)]):
+                if prev_record.gen == gen and not prev_record.is_spouse:
+                    principal_record = prev_record
+                    break
+
+            if principal_record:
+                # Create or update family for this couple
+                pair = tuple(sorted((principal_record.person_id, person_id)))
+                if pair not in family_cache:
+                    family_key = _family_line_key(
                         source_id,
                         page_index,
-                        line_index,
+                        record.line_index,
                         pair[0],
                         pair[1],
                     )
-                if approx_flag and family.approx is not True:
-                    family.approx = True
-                if family.page_index is None:
-                    family.page_index = page_index
-                session.add(family)
-            else:
-                family_key = _family_line_key(
-                    source_id,
-                    page_index,
-                    line_index,
-                    context.person.id,
-                    spouse.id,
-                )
-                family = Family.upsert_couple(
-                    session,
-                    source_id,
-                    context.person.id,
-                    spouse.id,
-                    line_key=family_key,
-                    approx=approx_flag,
-                    page_index=page_index,
-                )
-            context.family = family
-            context.spouse = spouse
-            if family and family.id:
-                stats.families_seen.add(family.id)
-            if approx_flag and family and family.approx is not True:
-                family.approx = True
-                session.add(family)
-            continue
+                    principal_person = session.get(Person, principal_record.person_id)
+                    approx = bool(person.approx) or bool(principal_person and principal_person.approx)
 
+                    family = Family.upsert_couple(
+                        session,
+                        source_id,
+                        pair[0],
+                        pair[1],
+                        line_key=family_key,
+                        approx=approx,
+                        page_index=page_index,
+                    )
+                    family_cache[pair] = family
+                    if family.id:
+                        families_seen.add(family.id)
+        else:
+            # This is a principal person (not a spouse line)
+            # Update the generation tracker
+            gen_tracker[gen] = record
+
+            # Clear all deeper generations (new branch)
+            keys_to_remove = [g for g in gen_tracker.keys() if g > gen]
+            for g in keys_to_remove:
+                del gen_tracker[g]
+
+            # If this person is Gen N, link them as child to Gen N-1 parent
+            if gen > 1 and (gen - 1) in gen_tracker:
+                parent_record = gen_tracker[gen - 1]
+                parent_id = parent_record.person_id
+
+                # Find or create family for parent
+                # Check if parent has a spouse (look for spouse record right after parent)
+                parent_idx = person_records.index(parent_record)
+                spouse_id = None
+                if parent_idx + 1 < len(person_records):
+                    next_record = person_records[parent_idx + 1]
+                    if next_record.is_spouse and next_record.gen == gen - 1:
+                        spouse_id = next_record.person_id
+
+                # Get or create family
+                if spouse_id:
+                    # Two-parent family
+                    pair = tuple(sorted((parent_id, spouse_id)))
+                    if pair not in family_cache:
+                        family_key = _family_line_key(
+                            source_id,
+                            page_index,
+                            record.line_index,
+                            pair[0],
+                            pair[1],
+                        )
+                        parent = session.get(Person, parent_id)
+                        spouse = session.get(Person, spouse_id)
+                        approx = bool(parent and parent.approx) or bool(spouse and spouse.approx)
+
+                        family = Family.upsert_couple(
+                            session,
+                            source_id,
+                            pair[0],
+                            pair[1],
+                            line_key=family_key,
+                            approx=approx,
+                            page_index=page_index,
+                        )
+                        family_cache[pair] = family
+                    else:
+                        family = family_cache[pair]
+                else:
+                    # Single-parent family
+                    if (parent_id, parent_id) not in family_cache:
+                        family_key = _family_line_key(
+                            source_id,
+                            page_index,
+                            record.line_index,
+                            parent_id,
+                            parent_id,
+                        )
+                        parent = session.get(Person, parent_id)
+                        family = Family.ensure_for_single_parent(
+                            session,
+                            source_id,
+                            parent_id,
+                            line_key=family_key,
+                            approx=bool(parent and parent.approx),
+                            page_index=page_index,
+                        )
+                        family_cache[(parent_id, parent_id)] = family
+                    else:
+                        family = family_cache[(parent_id, parent_id)]
+
+                if family and family.id:
+                    families_seen.add(family.id)
+
+                    # Link child to family
+                    link_key = _child_link_key(
+                        source_id,
+                        page_index,
+                        record.line_index,
+                        person_id,
+                        family.id,
+                    )
+                    link = Child.link(
+                        session,
+                        family.id,
+                        person_id,
+                        line_key=link_key,
+                        approx=bool(person.approx),
+                        page_index=page_index,
+                    )
+                    if link.id:
+                        children_seen.add(link.id)
+
+    session.commit()
+    return families_seen, children_seen
+
+
+def parse_ocr_text(
+    session: Session,
+    *,
+    source_id: int,
+    pages: List[str],
+    page_indexes: Optional[List[int]] = None,
+    progress_callback: Optional[Callable[[int, int], None]] = None,
+) -> Dict[str, int]:
+    """
+    Two-pass parser for genealogy descendancy charts.
+
+    Pass 1: Extract all Person entities
+    Pass 2: Build Family relationships and Child links using generation-level tracking
+    """
+    LOGGER.info(f"Starting two-pass parse for source {source_id}")
+
+    # Pass 1: Extract all persons
+    LOGGER.info("Pass 1: Extracting person entities...")
+    person_records, flagged_lines = extract_persons_pass1(
+        session,
+        source_id=source_id,
+        pages=pages,
+        page_indexes=page_indexes,
+        progress_callback=progress_callback,
+    )
+    LOGGER.info(f"Pass 1 complete: extracted {len(person_records)} persons")
+
+    # Pass 2: Build family relationships
+    LOGGER.info("Pass 2: Building family relationships...")
+    families_seen, children_seen = build_relationships_pass2(
+        session,
+        source_id=source_id,
+        person_records=person_records,
+    )
+    LOGGER.info(f"Pass 2 complete: created {len(families_seen)} families, {len(children_seen)} child links")
+
+    # Update source with parser version
     source = session.get(Source, source_id)
     if source:
         source.parser_version = PARSER_VERSION
         session.add(source)
+        session.commit()
 
-    session.commit()
     return {
-        "people": len(stats.people_seen),
-        "families": len(stats.families_seen),
-        "children": len(stats.children_seen),
-        "flagged_lines": stats.flagged_lines,
+        "people": len(set(r.person_id for r in person_records)),
+        "families": len(families_seen),
+        "children": len(children_seen),
+        "flagged_lines": flagged_lines,
     }
 
 
