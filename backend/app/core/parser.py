@@ -14,7 +14,7 @@ from .models import Child, Family, Person, Source
 
 LOGGER = logging.getLogger(__name__)
 
-PARSER_VERSION = "1.1.1"
+PARSER_VERSION = "1.1.2"
 
 DASH_VARIANTS = "\u2010\u2011\u2012\u2013\u2014\u2015\u2212"
 # Primary pattern: II-- Name (double dash format)
@@ -100,7 +100,9 @@ def normalize_ocr_text(page: str) -> List[str]:
     # Handle common OCR artifacts like X, ×, +, etc. between closing paren and sp-
     text_value = re.sub(r"(\))\s*[X×+*]?\s*sp-", r"\1 sp-", text_value, flags=re.IGNORECASE)
     # Normalize generation markers: handle both correct (--) and common OCR errors (*-, +-, etc.)
-    text_value = re.sub(r"(?m)^(\s*\d+)\s*[*+\-]{1,2}\s*", r"\1-- ", text_value)
+    # Match both start of line and after closing paren/digit (handles inline records)
+    text_value = re.sub(r"(^|\)|\d)\s*(\d+)\s*[*+]{1}\s*-", r"\1\2-- ", text_value, flags=re.MULTILINE)
+    text_value = re.sub(r"(?m)^(\s*\d+)\s*-{1,2}\s*", r"\1-- ", text_value)
 
     lines: List[str] = []
     buffer: Optional[str] = None
