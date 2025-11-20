@@ -1,0 +1,156 @@
+================================================================================
+GENEALOGY PARSER ACCURACY REPORT - After Batch 2 OCR Fixes
+================================================================================
+Generated: 2025-11-15
+
+SUMMARY OF IMPROVEMENTS
+================================================================================
+
+Previous Status (after Batch 1):
+  - Overall: 187/302 persons linked (61.9%)
+  - Andrew NEWCOMB Lt.: 15/15 children (100%)
+  - Orphans: 115 (38.1%)
+
+Current Status (after Batch 2):
+  - Overall: 200/308 persons linked (64.9%)
+  - Andrew NEWCOMB Lt.: 15/15 children (100%)
+  - Orphans: 108 (35.1%)
+
+Improvement:
+  - +13 persons successfully linked to families
+  - +6 new persons extracted (total persons 302 → 308)
+  - -7 orphans reduced (115 → 108)
+  - +3.0% overall accuracy improvement (61.9% → 64.9%)
+
+
+BATCH 2 OCR FIXES APPLIED
+================================================================================
+
+Total pages corrected: 7 pages (all pages in document)
+Total fixes applied: Multiple corrections per page
+
+Categories of fixes:
+1. Extra leading digits in generation markers
+   - Pattern: XXN-- → N-- (e.g., 936-- → 6--, 977-- → 7--, 612-- → 12--)
+   - Fixed: ~30+ instances across all pages
+
+2. Leading zero patterns
+   - Pattern: 0NN-- → NN-- (e.g., 017-- → 7--, 027-- → 7--)
+   - Fixed: ~10+ instances
+
+3. Generation marker character errors
+   - )L-- → )11-- (uppercase L after closing paren)
+   - T-~ → 7-- (T and tilde)
+
+4. Tilde characters in names/IDs
+   - All ~ replaced with - throughout document
+   - Affected: RICKEL~573, MOORE~576, SPRAGUE~413, POTTS~1361, etc.
+
+5. Name OCR errors (character substitutions)
+   - BRADFORO → BRADFORD
+   - Rachel → Rachel (] → l)
+   - Hichael → Michael
+   - NOORE → MOORE
+   - BLOON → BLOOM
+   - Hariam → Miriam
+   - Thonas → Thomas
+   - NEWCOHB → NEWCOMB
+   - BL1$S → BLISS
+   - Siby] → Sibyl
+   - LYNN%6 → LYNN
+   - Hatthew → Matthew
+   - Canmie → Cammie
+   - Hary VAN → Mary VAN
+   - £. → E.
+
+6. Punctuation in names
+   - "J, BOCKMEYER" → "J. BOCKMEYER" (comma to period)
+
+7. Percentage signs in IDs
+   - -139%6 → -1396
+
+
+PAGE-BY-PAGE ACCURACY
+================================================================================
+
+Page 0: 31/50 linked (62.0%), 19 orphans (38.0%)
+Page 1: 26/50 linked (52.0%), 24 orphans (48.0%)
+Page 2: 47/51 linked (92.2%), 4 orphans (7.8%)
+Page 3: 23/43 linked (53.5%), 20 orphans (46.5%)
+Page 4: 23/42 linked (54.8%), 19 orphans (45.2%)
+Page 5: 31/50 linked (62.0%), 19 orphans (38.0%)
+Page 6: 20/20 linked (100.0%), 0 orphans (0.0%)
+
+High-performing pages: 2 (92.2%), 6 (100%)
+Problem pages: 1, 3, 4 (all <55%)
+
+
+ORPHANS BY GENERATION
+================================================================================
+
+Gen 2: 2 orphans
+Gen 3: 2 orphans
+Gen 4: 4 orphans
+Gen 5: 4 orphans
+Gen 6: 1 orphan
+Gen 7: 26 orphans
+Gen 8: 9 orphans
+Gen 9: 6 orphans
+Gen 10: 10 orphans
+Gen 11: 16 orphans
+Gen 12: 25 orphans
+
+TOTAL: 105 orphans (Gen 2-12)
+
+Note: Most orphans are in higher generations (7, 11, 12), suggesting
+potential issues with:
+- High generation number OCR errors
+- Complex family structures in later generations
+- Missing or malformed generation markers
+
+
+ANDREW NEWCOMB Lt. VERIFICATION
+================================================================================
+
+Person ID: 1
+Status: [OK] 100% accuracy (15/15 children)
+
+Family 1 (sp: Sarah): 7 children
+Family 46 (sp: Anna BAYES): 8 children
+
+All expected children successfully linked:
+- First wife Sarah: 7 children ✓
+- Second wife Anna BAYES: 8 children ✓
+
+
+NEXT STEPS
+================================================================================
+
+1. Review problematic_lines_v2.csv (105 remaining orphans)
+   - Focus on pages 1, 3, 4 (highest orphan rates)
+   - Pay special attention to Gen 7, 11, 12 (highest orphan counts)
+
+2. Manually compare OCR text with original PDF for:
+   - Generation markers that may be misread
+   - Name variations that don't match expected patterns
+   - Inline records that may not be splitting correctly
+
+3. Consider implementing:
+   - Fuzzy matching for generation markers
+   - Better handling of complex family structures
+   - Enhanced spouse linking logic
+
+4. Continue iterative OCR correction process
+
+
+FILES GENERATED
+================================================================================
+
+- problematic_lines_v2.csv: Detailed list of 105 orphaned persons with OCR context
+- ocr_issues_summary_v2.csv: Summary statistics by category
+- ACCURACY_REPORT_v2.txt: This report
+
+
+================================================================================
+End of Report
+================================================================================

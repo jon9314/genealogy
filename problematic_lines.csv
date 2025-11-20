@@ -1,0 +1,114 @@
+Person ID,Page,Line Index,Gen,Name Extracted,Birth,Full OCR Line,Previous Line,Next Line,Problem Type,Notes
+6,0,6,2,Deborah 2,1664,3-- John NEWCOMB Deacon-1653 (1688-1765),sp-Deborah 2-116 (1664-1756),4-- Eddy NEWCOMB-1964,Orphan,
+9,0,9,4,Abigail ENGLISH,1724,3-- Thomas NEWCOMB-1754 (1691-1761),sp-Abigail ENGLISH-973 (1724),3-- Hezekiah NEWCOMB-109 (1693-1772),Orphan,
+12,0,12,3,Jerusha BRADFORO,1692,4-- Silas NEWCOMB-1742 (1717-1773),sp-Jerusha BRADFORO-110 (1692-1739),sp-Submit PINEO-1751 (1717-1804),Orphan,
+14,0,14,4,Submit PINEO,1717,4-- Peter NEWCOMB-107 (1718-1779),sp-Submit PINEO-1751 (1717-1804),sp-Hannah ENGLISH-108 (1722-1796),Orphan,
+16,0,16,4,Hannah ENGLISH,1722,5-- Phebe NEWCOMB-1737 (1741-1785)S-- Hezekiah NEWCOMB-1738 (1747-1821),sp-Hannah ENGLISH-108 (1722-1796),5-- Samuel NEWCOMB-105 (1749-1800),Orphan,
+19,0,19,5,Mary CRANDALL,1750,6-- Hannah NEWCOMB-17,sp-Mary CRANDALL-106 (1750-1830),336-- Emma NEWCOMB-1734 ( -1834),Orphan,
+22,0,22,6,Hart ROBERTS,1772,sp-Hart ROBERTS-56 (1772-1832),6-- Patty NEWCOMB-57 (1776-1828),7-- Oliver Crandall ROBERTS-48 (1796-1882),Orphan,
+24,0,24,7,Elizabeth,etsey,sp-Elizabeth (Betsey) HARRIS-49 (1798-1888),7-- Oliver Crandall ROBERTS-48 (1796-1882),8-- William ROBERTS~1180 (1822),No surname,
+28,0,28,8,John BENSCOTER-- Champlain Harris ROBERTS,1835,sp-John BENSCOTER-17,8-- Ada Betsey ROBERTS-1715 (1829),198-- Champlain Harris ROBERTS-46 (1835-1914),Orphan,
+29,0,29,8,Rache] SLATER,1837,198-- Champlain Harris ROBERTS-46 (1835-1914),sp-John BENSCOTER-17,sp-Rache] SLATER-1701 (1837-1861),Orphan,
+33,0,33,9,Sarah Ann QUICK,1843,9-- Julia Rachel ROBERTS-1704 (1858-1879),9-- Jennie ROBERTS-1703 (1857),sp-Sarah Ann QUICK-588 (1843-1880),Orphan,
+37,0,37,9,Alonzo Guy MOORE,1878,9-- Betsey Grace ROBERTS-39 (1882-1907),9-- Hosea Samuel ROBERTS-1706 (1871-1898)sp~Enma Elizabeth QUICK-47 (1850-1927),sp-Alonzo Guy MOORE-38 (1878-1944),Orphan,
+39,0,39,10,Richard Roosevelt IRISH,1901,10-- Virtue Amalia MOORE-403 (1902-1975),sp-Alonzo Guy MOORE-38 (1878-1944),sp-Richard Roosevelt IRISH-542 (1901-1971),Orphan,High generation - check if gen marker correct
+41,0,41,11,Edward GROSE-- Hichael GROSE,1944,11-- Grace Gertrude IRISH-543 (1921-1993),sp-Richard Roosevelt IRISH-542 (1901-1971),sp-Edward GROSE-54,Orphan,High generation - check if gen marker correct
+44,0,44,11,Rose Domenica INGLESE,1927,12-- Rebecca Sue GROSE-548 (1948),612-- Hichael GROSE-547 (1944),11-- Ralph Archie IRISH-544 (1926),Orphan,High generation - check if gen marker correct
+46,0,46,12,Susan Marie SMITH,1949,sp-Rose Domenica INGLESE-549 (1927),11-- Ralph Archie IRISH-544 (1926),12-- Richard Anthony IRISH-550 (1947),Orphan,High generation - check if gen marker correct
+48,0,48,12,Barbara Kay LECKLIDER,1954,sp-Susan Marie SMITH-553 (1949) .,12-- Richard Anthony IRISH-550 (1947),12-- Ernest Brian IRISH-551 (1955),Orphan,High generation - check if gen marker correct
+49,0,49,12,Jill Rochelle COLPRON,1961,12-- Ernest Brian IRISH-551 (1955),sp-Susan Marie SMITH-553 (1949) .,sp-Barbara Kay LECKLIDER-556 (1954),Orphan,High generation - check if gen marker correct
+51,1,1,12,Ronald Burdette BROTT,1932,sp-Ronald Burdette BROTT-560 (1932),27 Sep 1995,12-- Ronald BROTT-561 (1953),Orphan,High generation - check if gen marker correct; On problem page
+58,1,8,10,Gladys LEWIS,1908,sp-Gladys LEWIS-565 (1908),10-- Frank MOORE-404 (1904-1985),11-- Dorothy May NOORE-566 (1928),Orphan,High generation - check if gen marker correct; On problem page
+60,1,10,11,William Hugh BLOOM,1928,sp-William Hugh BLOOM-568 (1928),11-- Dorothy May NOORE-566 (1928),12-- Linda Carol BLOON-569 (1949),Orphan,High generation - check if gen marker correct; On problem page
+62,1,12,12,John SWARTZ,1948,sp-John SWARTZ-571 (1948),12-- Linda Carol BLOON-569 (1949),12-- Mary Louise BLOOM-570 (1955),Orphan,High generation - check if gen marker correct; On problem page
+64,1,14,12,Randy RICKEL~573,1953,sp-Randy RICKEL~573 (1953)1l--Robert Frank MOORE-567 (1929),12-- Mary Louise BLOOM-570 (1955),sp-Arlene BROWN-575 (1928),Orphan,High generation - check if gen marker correct; On problem page
+65,1,15,12,Arlene BROWN,1928,sp-Arlene BROWN-575 (1928),sp-Randy RICKEL~573 (1953)1l--Robert Frank MOORE-567 (1929),12-- Gary Robert MOORE~576 (1953),Orphan,High generation - check if gen marker correct; On problem page
+67,1,17,12,Mary Katherine WRIGHT,1953,sp-Mary Katherine WRIGHT-579 (1953),12-- Gary Robert MOORE~576 (1953),12-- Jeffery Wayne MOORE-577 (1955),Orphan,High generation - check if gen marker correct; On problem page
+69,1,19,12,Hariam PAAR,1954,sp-Hariam PAAR-580 (1954),12-- Jeffery Wayne MOORE-577 (1955),12-- Janice MOORE-578 (1957),Orphan,High generation - check if gen marker correct; On problem page
+71,1,21,12,"Peter J, BOCKMEYER",1956,"sp-Peter J, BOCKMEYER-581 (1956)X",12-- Janice MOORE-578 (1957),10-- Belle Marguerite MOORE-37 (1907-1972),Orphan,High generation - check if gen marker correct; On problem page
+73,1,23,10,Everett Wallace COWAN,1903,sp-Everett Wallace COWAN-2 (1903-1990)L--Lois Arleith COWAN-1 (1928),10-- Belle Marguerite MOORE-37 (1907-1972),sp-Gerald Scott YEOMANS-62 (1926),Orphan,High generation - check if gen marker correct; On problem page
+74,1,24,10,Gerald Scott YEOMANS,1926,sp-Gerald Scott YEOMANS-62 (1926),sp-Everett Wallace COWAN-2 (1903-1990)L--Lois Arleith COWAN-1 (1928),12-- Jennifer Arleith YEOMANS-63 (1952),Orphan,High generation - check if gen marker correct; On problem page
+75,1,25,12,Jennifer Arleith YEOMANS,1952,12-- Jennifer Arleith YEOMANS-63 (1952),sp-Gerald Scott YEOMANS-62 (1926),sp-Gerald Edward KOON-65 (1950),Orphan,High generation - check if gen marker correct; On problem page
+76,1,26,12,Gerald Edward KOON,1950,sp-Gerald Edward KOON-65 (1950),12-- Jennifer Arleith YEOMANS-63 (1952),12-- David Scott YEOMANS-64 (1956),Orphan,High generation - check if gen marker correct; On problem page
+77,1,27,12,David Scott YEOMANS,1956,12-- David Scott YEOMANS-64 (1956),sp-Gerald Edward KOON-65 (1950),sp-Kathy Arloene HITT-68 (1956),Orphan,High generation - check if gen marker correct; On problem page
+78,1,28,12,Kathy Arloene HITT,1956,sp-Kathy Arloene HITT-68 (1956),12-- David Scott YEOMANS-64 (1956),11-- Everett Bruce COWAN-72 (1930),Orphan,High generation - check if gen marker correct; On problem page
+80,1,30,11,Minnie Pauline YEAGER,1932,sp-Minnie Pauline YEAGER-73 (1932),11-- Everett Bruce COWAN-72 (1930),12-- Brian Lee COWAN Re,Orphan,High generation - check if gen marker correct; On problem page
+82,1,32,12,Teresa Lorraine SHAULIS,1954,v.-74 (1954),12-- Brian Lee COWAN Re,sp-Teresa Lorraine SHAULIS-329 (1954),Orphan,High generation - check if gen marker correct; On problem page
+84,1,34,12,Pamela Kay BUHBALOUGH,1960,12-- Robert Bruce COWAN-75 (1958),sp-Teresa Lorraine SHAULIS-329 (1954),sp-Pamela Kay BUHBALOUGH-333 (1960),Orphan,High generation - check if gen marker correct; On problem page
+86,1,36,12,Amanda PICKELMAN,1964,12-- Thonas Allen COWAN-76 (1959),sp-Pamela Kay BUHBALOUGH-333 (1960),sp-Amanda PICKELMAN-335 (1964),Orphan,High generation - check if gen marker correct; On problem page
+87,1,37,12,Christine Marguerite CROAD,,sp-Amanda PICKELMAN-335 (1964),12-- Thonas Allen COWAN-76 (1959),sp-Christine Marguerite CROAD-3014 ( -1994),Orphan,High generation - check if gen marker correct; On problem page
+89,1,39,11,Joyce Marie COMPTON,1945,11-- Frank Lyle COWAN-77 (1944),sp-Christine Marguerite CROAD-3014 ( -1994),sp-Joyce Marie COMPTON-78 (1945),Orphan,High generation - check if gen marker correct; On problem page
+91,1,41,12,Curtis Lee MCDONOUGH,1962,12-- Robin Lynn COWAN-79 (1967),sp-Joyce Marie COMPTON-78 (1945),sp-Curtis Lee MCDONOUGH-336 (1962),Orphan,High generation - check if gen marker correct; On problem page
+94,1,44,12,Shaun BRUNNER-- Harry ROBERTS,1885,12-- Tamara Belle COWAN-81 (1973),12-- Terri Leigh COWAN-80 (1971),sp-Shaun BRUNNER-3,Orphan,High generation - check if gen marker correct; On problem page
+95,1,45,12,Haggie ELORIC169,,sp-Shaun BRUNNER-3,12-- Tamara Belle COWAN-81 (1973),379-- Harry ROBERTS-1691 (1885),Orphan,High generation - check if gen marker correct; On problem page
+96,1,47,12,Emmett FOWLER,1885,sp-Haggie ELORIC169,379-- Harry ROBERTS-1691 (1885),310-- Champlain Harry ROBERTS-16,Orphan,High generation - check if gen marker correct; On problem page
+99,1,50,10,George FENTON,,sp-Emmett FOWLER-1695 (1885-1971),949-- Effie Belle ROBERTS-1692 (1888-1918),10-- FOWLER-1696 ( -1914),Orphan,High generation - check if gen marker correct; On problem page
+143,2,44,2,Joyce BUTLER~1776,1683,2-- Elizabeth NEWCOHB-1769 (1681-1743),2-- Anna NEWCOMB-1768 (1677-1723),2-- Joseph NEWCOMB Capt .-1770 (1683-1733),Orphan,
+146,2,47,3,James PINEO Deacon,1709,3-- Bayes NEWCOMB-1777 (1708),sp-Joyce BUTLER~1776 (1683),3-- Priscilla NEWCOMB-893 (1711-1792),Orphan,
+151,2,52,4,Sanuel BL1$S,1731,4-- Joyce PINEO-1799 (1736),4-- James PINEO-1798 (1734-1824),4-- Elizabeth PINEO-883 (1738),Orphan,
+153,2,54,5,Beriah SPRAGUE,1754,sp-Sanuel BL1$S-882 (1731),4-- Elizabeth PINEO-883 (1738),5-- Elizabeth BLISS~92 (1757-1799),Orphan,
+154,3,1,5,Sibyl HALL,1790,936-- Phineas SPRAGUE-449 ( -1828),OESCENDANCY CHART,sp-Sally RHODES-13,Orphan,On problem page
+155,3,2,5,Cynthia BOWEN-- Jonathan Hall SPRAGUE~413,,sp-Sally RHODES-13,936-- Phineas SPRAGUE-449 ( -1828),946-- Samuel Bliss SPRAGUE-25 (1786-1854),Orphan,On problem page
+156,3,3,5,Electa GRANGER-- Chester Hayden SPRAGUE~414,1812,946-- Samuel Bliss SPRAGUE-25 (1786-1854),sp-Sally RHODES-13,sp-Sibyl HALL-53 (1790-1859)T-~ Seth SPRAGUE-412 (1807-1821),Orphan,On problem page
+157,3,4,5,Helissa JOHNSON-- Beriah SPRAGUE,,sp-Sibyl HALL-53 (1790-1859)T-~ Seth SPRAGUE-412 (1807-1821),946-- Samuel Bliss SPRAGUE-25 (1786-1854),sp-Cynthia BOWEN-13,Orphan,On problem page
+158,3,5,5,Mariah SWEET-- Jane SPRAGUE,,sp-Cynthia BOWEN-13,sp-Sibyl HALL-53 (1790-1859)T-~ Seth SPRAGUE-412 (1807-1821),977-- Jonathan Hall SPRAGUE~413,Orphan,On problem page
+159,3,6,5,Alexander FRAKER-- Phebe SPRAGUE,1820,977-- Jonathan Hall SPRAGUE~413,sp-Cynthia BOWEN-13,sp-Electa GRANGER-13,Orphan,On problem page
+160,3,7,5,Lewis COLE,1820,sp-Electa GRANGER-13,977-- Jonathan Hall SPRAGUE~413,987-- Chester Hayden SPRAGUE~414 (1812-1844),Orphan,On problem page
+161,3,8,8,Samuel Mortimer COLE,1841,987-- Chester Hayden SPRAGUE~414 (1812-1844),sp-Electa GRANGER-13,sp-Helissa JOHNSON-13,Orphan,On problem page
+162,3,9,8,Ira Kingsley COLE,1842,sp-Helissa JOHNSON-13,987-- Chester Hayden SPRAGUE~414 (1812-1844),997-- Beriah SPRAGUE-415,Orphan,On problem page
+163,3,10,8,Elvira Malinda POTTS~1361,1840,997-- Beriah SPRAGUE-415,sp-Helissa JOHNSON-13,sp-Mariah SWEET-14,Orphan,On problem page
+168,3,15,8,Seth Rosell COLE,1845,sp-Lewis COLE-9 (1820-1892),017-- Phebe SPRAGUE-24 (1820-1910),8-- Samuel Mortimer COLE-388 (1841-1844),Orphan,On problem page
+169,3,16,8,Charles Rodney COLE,1847,8-- Samuel Mortimer COLE-388 (1841-1844),sp-Lewis COLE-9 (1820-1892),8-- Ira Kingsley COLE-380 (1842-1919),Orphan,On problem page
+170,3,17,8,Sevilla Clara SMITH,1846,8-- Ira Kingsley COLE-380 (1842-1919),8-- Samuel Mortimer COLE-388 (1841-1844),sp-Elvira Malinda POTTS~1361 (1840-1911),Orphan,On problem page
+172,3,19,9,"Thomas H, WESCOTT",,9-- Almira Louisa COLE-1362 (1864-1922),sp-Elvira Malinda POTTS~1361 (1840-1911),9-- Lorell Mortimer COLE-1363 (1866-1944),Orphan,On problem page
+175,3,22,10,Walter MAIER-- Eugene HAIER,1925,9-- Ira Lewis COLE-13,9-- Jessie Eugenia COLE-1364 (1868-1896),669-- Jennie Laura COLE-1365 (1875),Orphan,High generation - check if gen marker correct; On problem page
+179,3,26,9,Frank Wallace COWAN,1877,sp-Sevilla Clara SMITH-32 (1846-1928),8-- Charles Rodney COLE-8 (1847-1928),9-- Luella Diana COLE-375 (1870-1953),Orphan,On problem page
+181,3,28,10,Helen Katherine LEDWICK,1907,"sp-Thomas H, WESCOTT-1131 ( -1901)",9-- Luella Diana COLE-375 (1870-1953),10-- Gordon WESCOTT-1132 (1897),Orphan,High generation - check if gen marker correct; On problem page
+184,3,31,12,Deborah-- Todd Alan COWAN,1956,sp-Walter MAIER-113,10-- Irma WESCOTT-1133 (1901-1989),411-- Eugene HAIER-1135 (1925),Orphan,High generation - check if gen marker correct; On problem page
+188,3,35,11,William George HICKMAN,1930,9-- Frances Belle COLE-7 (1872-1905),11-- Gerald MAIER-1137 (1929),sp-Frank Wallace COWAN-3 (1877-1943),Orphan,High generation - check if gen marker correct; On problem page
+192,3,39,11,Sandra COLES,1936,11-- Kenneth Dale COWAN-342 (1926)sp~Bever ly HYERS~346 (1930),sp-Helen Katherine LEDWICK-341 (1907-1990),12-- Mark COWAN-347 (1953),Orphan,High generation - check if gen marker correct; On problem page
+194,3,41,12,Teresa DORR,,sp-Deborah-35,12-- Mark COWAN-347 (1953),212-- Todd Alan COWAN-348 (1956),Orphan,High generation - check if gen marker correct; On problem page
+195,4,2,12,Steven DALY-- Richard COWAN,1959,312-- Richard COWAN-361 (1959),sp-Steven DALY-48,sp-Judy FRAYER-48,Orphan,High generation - check if gen marker correct; On problem page
+196,4,3,12,Judy FRAYER-- Everett Wallace COWAN,1903,sp-Judy FRAYER-48,312-- Richard COWAN-361 (1959),610-- Everett Wallace COWAN-2 (1903-1990),Orphan,High generation - check if gen marker correct; On problem page
+197,4,5,12,Ednah Belle SPRAGUE,1901,sp-Belle Marguerite MOORE-37 (1907-1972)xt SEE PAGE 2 FOR CHILDREN 44%,610-- Everett Wallace COWAN-2 (1903-1990),sp-Ednah Belle SPRAGUE-2996 (1901-1988),Orphan,High generation - check if gen marker correct; On problem page
+200,4,8,8,Lewis Spencer COLE,1850,9-- Arthur COLE~376 (1874-1914),10-- Charles Rodney COWAN-340 (1905-1905),8-- Lewis Spencer COLE-382 (1850-1928),Orphan,On problem page
+201,4,9,8,John Eugene COLE,1851,8-- Lewis Spencer COLE-382 (1850-1928),9-- Arthur COLE~376 (1874-1914),8-- John Eugene COLE-383 (1851-1904),Orphan,On problem page
+202,4,10,8,Sarah Diane COLE,1852,8-- John Eugene COLE-383 (1851-1904),8-- Lewis Spencer COLE-382 (1850-1928),8-- Sarah Diane COLE-384 (1852-1920),Orphan,On problem page
+203,4,11,8,George Washington COLE,1856,8-- Sarah Diane COLE-384 (1852-1920),8-- John Eugene COLE-383 (1851-1904),8-- George Washington COLE-385 (1856-1856),Orphan,On problem page
+204,4,12,8,Chester Haden COLE,1857,8-- George Washington COLE-385 (1856-1856),8-- Sarah Diane COLE-384 (1852-1920),8-- Chester Haden COLE-386 (1857-1928),Orphan,On problem page
+205,4,13,8,Lincoln Ellsworth COLE,1862,8-- Chester Haden COLE-386 (1857-1928),8-- George Washington COLE-385 (1856-1856),8-- Lincoln Ellsworth COLE-387 (1862-1938),Orphan,On problem page
+206,4,14,7,Obediah Hitchcock SPRAGUE,1822,8-- Lincoln Ellsworth COLE-387 (1862-1938),8-- Chester Haden COLE-386 (1857-1928),7-- Obediah Hitchcock SPRAGUE-417 (1822),Orphan,On problem page
+207,4,15,7,Caroline MUNSON-- Diedma SPRAGUE,1826,7-- Obediah Hitchcock SPRAGUE-417 (1822),8-- Lincoln Ellsworth COLE-387 (1862-1938),sp-Caroline MUNSON-14,Orphan,On problem page
+208,4,16,7,Jonathan FRAKER-- Siby] SPRAGUE,1826,sp-Caroline MUNSON-14,7-- Obediah Hitchcock SPRAGUE-417 (1822),027-- Diedma SPRAGUE-418 (1826),Orphan,On problem page
+209,4,17,7,Isaac Miller FERGUSON-- Daniel SPRAGUE,,027-- Diedma SPRAGUE-418 (1826),sp-Caroline MUNSON-14,sp-Jonathan FRAKER-14,Orphan,On problem page
+210,4,18,7,Emily-- Beriah SPRAGUE4,,sp-Jonathan FRAKER-14,027-- Diedma SPRAGUE-418 (1826),037-- Siby] SPRAGUE-419 (1826-1915),Orphan,On problem page
+211,4,20,7,Huldah LYNN%6,1803,sp-Isaac Miller FERGUSON-14,037-- Siby] SPRAGUE-419 (1826-1915),046-- Daniel SPRAGUE-450,Orphan,On problem page
+212,4,21,7,Catherine Ann SPRAGUE,1821,046-- Daniel SPRAGUE-450,sp-Isaac Miller FERGUSON-14,sp-Emily-13,Orphan,On problem page
+213,4,22,7,Oliver SPRAGUE,1823,sp-Emily-13,046-- Daniel SPRAGUE-450,956-- Beriah SPRAGUE4,Orphan,On problem page
+214,4,23,7,Ruth FOSGATE,1826,956-- Beriah SPRAGUE4,sp-Emily-13,516-- Ichabod Ward SPRAGUE-452 (1797-1873),Orphan,On problem page
+217,4,26,8,Helen CHAPIN-- Benson SPRAGUE,1870,7-- Catherine Ann SPRAGUE-1405 (1821),sp-Huldah LYNN-139%6 (1803-1863),7-- Oliver SPRAGUE-1406 (1823-1888),Orphan,On problem page
+218,4,27,8,Mary MCKEAN-- Jesse SPRAGUE,1892,7-- Oliver SPRAGUE-1406 (1823-1888),7-- Catherine Ann SPRAGUE-1405 (1821),sp-Ruth FOSGATE-2364 (1826-1879),Orphan,On problem page
+219,4,28,10,Dean SPRAGUE-- Robert SPRAGUE-- Helen SPRAGUE,1899,sp-Ruth FOSGATE-2364 (1826-1879),7-- Oliver SPRAGUE-1406 (1823-1888),"8-- Laura A, SPRAGUE-2365 (1845-1935)",Orphan,High generation - check if gen marker correct; On problem page
+221,4,30,8,Emogene Roselia CROSS,1857,8-- Wellington SPRAGUE-2366 (1852-1884),"8-- Laura A, SPRAGUE-2365 (1845-1935)",sp-Helen CHAPIN-23,Orphan,On problem page
+224,4,33,9,Grace Phinanda HIX,1885,sp-Mary MCKEAN-239,939-- Benson SPRAGUE-2394 (1870-1944),510-- Jesse SPRAGUE-2396 (1892),Orphan,On problem page
+229,4,38,10,Lena Elizabeth HICKS-- Sharon Lee SPRAGUE,1943,8-- Frank Wellington SPRAGUE-2367 (1853-1924),810-- Helen SPRAGUE-2399 (1899),sp-Emogene Roselia CROSS-2383 (1857-1946),Orphan,High generation - check if gen marker correct; On problem page
+231,4,40,11,Nancy Marie FREITAG,1949,9-- Claribel SPRAGUE-2384 (1877-1906),sp-Emogene Roselia CROSS-2383 (1857-1946),9-- Lynn Abel SPRAGUE-2385 (1879-1962),Orphan,High generation - check if gen marker correct; On problem page
+235,5,0,11,Patricia Jane CARSON,1954,sp-Patricia Jane CARSON-2426 (1954),,12-- Holly Diane SPRAGUE-2427 (1984),Orphan,High generation - check if gen marker correct
+240,5,5,11,Catherine GANTLEY,1960,sp-Catherine GANTLEY-2429 (1960),11-- Phillip Robert SPRAGUE-2414 (1959),sp-Cheryl LOGAN-2430 (1960),Orphan,High generation - check if gen marker correct
+241,5,6,11,Cheryl LOGAN,1960,sp-Cheryl LOGAN-2430 (1960),sp-Catherine GANTLEY-2429 (1960),12-- Hatthew Benjamin SPRAGUE-2431 (1986),Orphan,High generation - check if gen marker correct
+244,5,9,10,Audrey Grace BACON,1912,sp-Audrey Grace BACON-2415 (1912),10-- Hugh Oliver SPRAGUE-2405 (1921),11-- Michael Ward SPRAGUE~2416 (1947),Orphan,High generation - check if gen marker correct
+249,5,14,10,Norma Elizabeth ZIMMERMAN,1922,sp-Norma Elizabeth ZIMMERMAN-2419 (1922),10-- Frank Worth SPRAGUE-2406 (1925),11-- Andrew Charles SPRAGUE-2420 (1948),Orphan,High generation - check if gen marker correct
+251,5,16,11,Marie Elaine GRAHAN-- Canmie Lynn SPRAGUE,1972,sp-Marie Elaine GRAHAN-243,11-- Andrew Charles SPRAGUE-2420 (1948),212-- Canmie Lynn SPRAGUE-2433 (1972),Orphan,High generation - check if gen marker correct
+253,5,18,11,Susan Lynn WEINSTEIN-- Forrest Lynn SPRAGUE,1976,11-- Lynn Arnold SPRAGUE-2421 (1949),212-- Canmie Lynn SPRAGUE-2433 (1972),sp-Susan Lynn WEINSTEIN-243,Orphan,High generation - check if gen marker correct
+255,5,20,12,Hary VAN HOUSE,,412-- Forrest Lynn SPRAGUE-2435 (1976),sp-Susan Lynn WEINSTEIN-243,12-- Heather Lynn SPRAGUE-2436 (1978),Orphan,High generation - check if gen marker correct
+262,5,27,7,John £. SPRAGUE,1827,9-- Stella May SPRAGUE-2386 (1883-1903),10-- Faye Grace SPRAGUE-2407 (1929),8-- Carrie SPRAGUE-23,Orphan,
+263,5,28,7,Sarah WOODCOCK,1828,8-- Carrie SPRAGUE-23,9-- Stella May SPRAGUE-2386 (1883-1903),688-- Helen SPRAGUE-23,Orphan,
+272,5,37,8,Foster HULL-- Amy SPRAGUE,1869,8-- Katie SPRAGUE-2375 (1858-1882),"8-- Sarah C, SPRAGUE-2374 (1856)",8-- May SPRAGUE-2376 (1861),Orphan,
+274,5,39,7,James SPRAGUE,1829,8-- Mary SPRAGUE-2377 (1864),8-- May SPRAGUE-2376 (1861),8-- Winifred SPRAGUE-2378 (1867),Orphan,
+275,5,40,7,Justina SPRAGUE,1833,8-- Winifred SPRAGUE-2378 (1867),8-- Mary SPRAGUE-2377 (1864),sp-Foster HULL-23,Orphan,
+276,5,41,7,Columbia SPRAGUE,1835,sp-Foster HULL-23,8-- Winifred SPRAGUE-2378 (1867),878-- Amy SPRAGUE-2379 (1869),Orphan,
+277,5,42,7,Ichabod Ward SPRAGUE Jr.,1838,878-- Amy SPRAGUE-2379 (1869),sp-Foster HULL-23,8-- Pearl SPRAGUE-2380 (1875-1879),Orphan,
+278,5,43,7,George SPRAGUE,1840,8-- Pearl SPRAGUE-2380 (1875-1879),878-- Amy SPRAGUE-2379 (1869),7-- James SPRAGUE-1407 (1829),Orphan,
+279,5,44,7,Udell SPRAGUE,1843,7-- James SPRAGUE-1407 (1829),8-- Pearl SPRAGUE-2380 (1875-1879),7-- Justina SPRAGUE-1410 (1833),Orphan,
+280,5,45,7,Maranda WHEELER,1842,7-- Justina SPRAGUE-1410 (1833),7-- James SPRAGUE-1407 (1829),7-- Columbia SPRAGUE-1411 (1835),Orphan,
+282,5,47,8,Mary LAFAVE,1875,7-- Ichabod Ward SPRAGUE Jr.-1412 (1838),7-- Columbia SPRAGUE-1411 (1835),7-- George SPRAGUE-1413 (1840),Orphan,

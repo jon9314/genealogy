@@ -1,0 +1,46 @@
+backend-1  | INFO:     Started server process [1]
+backend-1  | INFO:     Waiting for application startup.
+backend-1  | INFO:     Application startup complete.
+backend-1  | INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+backend-1  | INFO:     172.19.0.3:37028 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.1:42698 - "POST /api/parse/1 HTTP/1.1" 200 OK
+backend-1  | INFO:     172.19.0.3:58158 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:58142 - "POST /api/project/autosave HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:51690 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:38202 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:52680 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:53266 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:47950 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:47934 - "POST /api/project/autosave HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:52286 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:59998 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:52024 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:43262 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:33032 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:33022 - "POST /api/project/autosave HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:41212 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:43620 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:55828 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:47526 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:44318 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:44314 - "POST /api/project/autosave HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:49306 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:53952 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:55568 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:56230 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:55436 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:55426 - "POST /api/project/autosave HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:57838 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:46064 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:53228 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:55174 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:45778 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:45764 - "POST /api/project/autosave HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:41508 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:53400 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:56294 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:58338 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:43238 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:43224 - "POST /api/project/autosave HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:39590 - "GET /api/ocr/notifications HTTP/1.0" 200 OK
+backend-1  | INFO:     172.19.0.3:39604 - "POST /api/project/autosave HTTP/1.0" 200 OK
