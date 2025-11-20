@@ -11,6 +11,7 @@ from sqlalchemy.exc import OperationalError
 from sqlmodel import Session
 
 from .models import Child, Family, Person, Source
+from .llm_parser import parse_with_llm_fallback, get_llm_parser
 
 LOGGER = logging.getLogger(__name__)
 
@@ -468,6 +469,87 @@ def extract_persons_pass1(
                 )
                 person_records.append(record)
             continue
+
+        # If we reach here, no pattern matched - try LLM fallback
+        llm_result = parse_with_llm_fallback(
+            raw_line,
+            regex_failed=True,
+            context={
+                "last_gen": last_principal_person.gen if last_principal_person else None,
+                "page_index": page_index,
+                "line_index": line_index,
+            }
+        )
+
+        if llm_result and llm_result.success:
+            LOGGER.info("LLM successfully parsed line: %s", raw_line[:80])
+
+            # Process each person extracted by LLM
+            for parsed_person in llm_result.persons:
+                if not parsed_person.name:
+                    continue
+
+                # Split name into given/surname (simple approach)
+                name_parts = parsed_person.name.strip().split(None, 1)
+                given = name_parts[0] if len(name_parts) > 0 else parsed_person.name
+                surname = name_parts[1] if len(name_parts) > 1 else None
+
+                # Build vitals dict
+                vitals = {}
+                if parsed_person.birth_year:
+                    vitals["birth"] = str(parsed_person.birth_year)
+                if parsed_person.death_year:
+                    vitals["death"] = str(parsed_person.death_year)
+
+                line_key = _make_line_key(source_id, page_index, line_index, raw_line)
+
+                # Determine generation - use parsed or inherit from last principal
+                gen = parsed_person.generation
+                if gen is None and last_principal_person:
+                    if parsed_person.is_spouse:
+                        gen = last_principal_person.gen
+                    else:
+                        gen = last_principal_person.gen + 1
+
+                if gen is None or gen < 1 or gen > 20:
+                    LOGGER.warning("LLM parsed invalid generation %s, skipping", gen)
+                    flagged_lines.append(raw_line)
+                    continue
+
+                # Create Person
+                person = Person.upsert_from_parse(
+                    session,
+                    source_id,
+                    given,
+                    surname,
+                    name=parsed_person.name,
+                    gen=gen,
+                    vitals=vitals,
+                    line_key=line_key,
+                    approx=parsed_person.birth_approx or parsed_person.death_approx,
+                )
+                _update_person_location(person, page_index, line_index, session)
+
+                if person.id:
+                    record = PersonRecord(
+                        person_id=person.id,
+                        gen=gen,
+                        page_index=page_index,
+                        line_index=line_index,
+                        is_spouse=parsed_person.is_spouse,
+                        is_second_spouse_marker=False,
+                    )
+                    person_records.append(record)
+
+                    # Update last_principal_person if not a spouse
+                    if not parsed_person.is_spouse:
+                        last_principal_person = record
+
+            continue  # Successfully handled with LLM
+
+        # LLM failed or unavailable - add to flagged lines
+        if not _is_header(raw_line) and raw_line.strip():
+            flagged_lines.append(raw_line)
 
     session.commit()
     return person_records, flagged_lines

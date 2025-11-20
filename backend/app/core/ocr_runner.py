@@ -16,6 +16,7 @@ import pytesseract
 from pypdf import PdfReader
 
 from .settings import Settings, get_settings
+from .ollama_helper import get_ollama_client, correct_ocr_line
 
 
 LOGGER = logging.getLogger(__name__)
@@ -350,3 +351,260 @@ def extract_confidence_scores(source_pdf: Path) -> List[Tuple[float, str]]:
             results.append((0.0, json.dumps([])))
 
     return results
+
+
+def extract_ollama_ocr(source_pdf: Path) -> List[Tuple[str, float]]:
+    """
+    Extract text using Ollama deepseek-ocr model.
+
+    Returns:
+        List of tuples: (text, confidence) for each page
+    """
+    settings = get_settings()
+    client = get_ollama_client()
+
+    if not settings.ollama_enabled or not client.is_available():
+        LOGGER.warning("Ollama not available for OCR")
+        return []
+
+    try:
+        # Convert PDF pages to images
+        images = convert_from_path(str(source_pdf))
+    except Exception as exc:
+        LOGGER.error("Failed to convert PDF to images for Ollama OCR: %s", exc)
+        return []
+
+    results: List[Tuple[str, float]] = []
+
+    for page_num, image in enumerate(images):
+        try:
+            # Use pytesseract to get raw text first, then correct with Ollama
+            lang = settings.ocrmypdf_language or "eng"
+            raw_text = pytesseract.image_to_string(image, lang=lang)
+
+            # Correct each line with Ollama deepseek-ocr
+            corrected_lines = []
+            for line in raw_text.split("\n"):
+                if line.strip():
+                    corrected_line = correct_ocr_line(line.strip(), model=settings.ollama_ocr_model)
+                    corrected_lines.append(corrected_line)
+                else:
+                    corrected_lines.append("")
+
+            corrected_text = "\n".join(corrected_lines)
+
+            # Estimate confidence based on corrections made
+            # More corrections = lower confidence in original = higher confidence in corrected
+            if raw_text != corrected_text:
+                confidence = 85.0  # High confidence when corrections were made
+            else:
+                confidence = 75.0  # Medium confidence when no corrections needed
+
+            results.append((corrected_text, confidence))
+
+            LOGGER.info(
+                "Ollama OCR for page %d: %d chars (confidence=%.2f)",
+                page_num + 1,
+                len(corrected_text),
+                confidence
+            )
+
+        except Exception as exc:
+            LOGGER.error("Failed Ollama OCR for page %d: %s", page_num + 1, exc)
+            results.append(("", 0.0))
+
+    return results
+
+
+def compare_ocr_line(tesseract_line: str, ollama_line: str, tesseract_conf: float, ollama_conf: float) -> Tuple[str, str]:
+    """
+    Compare two OCR lines and select the best one based on confidence and heuristics.
+
+    Returns:
+        Tuple of (selected_text, source) where source is "tesseract", "ollama", or "hybrid"
+    """
+    # If either is empty, return the non-empty one
+    if not tesseract_line.strip() and ollama_line.strip():
+        return ollama_line, "ollama"
+    if not ollama_line.strip() and tesseract_line.strip():
+        return tesseract_line, "tesseract"
+    if not tesseract_line.strip() and not ollama_line.strip():
+        return "", "tesseract"
+
+    # Check for genealogy-specific patterns
+    import re
+
+    # Generation markers
+    gen_marker_patterns = [
+        r"^\s*[IVX0-9DAPdap]{1,3}\s*--",  # Roman/Arabic/Letter + double dash
+        r"^\s*[IVX0-9]{1,3}\.\s+",  # Roman/Arabic + period
+    ]
+
+    # Spouse marker
+    spouse_pattern = r"^\s*sp-\s+"
+
+    tesseract_has_gen = any(re.search(p, tesseract_line) for p in gen_marker_patterns)
+    ollama_has_gen = any(re.search(p, ollama_line) for p in gen_marker_patterns)
+
+    tesseract_has_spouse = bool(re.search(spouse_pattern, tesseract_line, re.IGNORECASE))
+    ollama_has_spouse = bool(re.search(spouse_pattern, ollama_line, re.IGNORECASE))
+
+    # Prefer Ollama if it has generation/spouse markers and Tesseract doesn't
+    if ollama_has_gen and not tesseract_has_gen:
+        return ollama_line, "ollama"
+    if ollama_has_spouse and not tesseract_has_spouse:
+        return ollama_line, "ollama"
+
+    # Prefer Tesseract if it has generation/spouse markers and Ollama doesn't
+    if tesseract_has_gen and not ollama_has_gen:
+        return tesseract_line, "tesseract"
+    if tesseract_has_spouse and not ollama_has_spouse:
+        return tesseract_line, "tesseract"
+
+    # If both have markers or neither has markers, use confidence scores
+    if ollama_conf > tesseract_conf + 10:  # 10 point threshold
+        return ollama_line, "ollama"
+    elif tesseract_conf > ollama_conf + 10:
+        return tesseract_line, "tesseract"
+    else:
+        # Similar confidence, prefer Ollama for its corrections
+        return ollama_line, "ollama"
+
+
+def merge_ocr_results(
+    tesseract_text: str,
+    ollama_text: str,
+    tesseract_conf: float,
+    ollama_conf: float
+) -> Tuple[str, str, List[Dict]]:
+    """
+    Merge two OCR results by comparing line by line.
+
+    Returns:
+        Tuple of (final_text, overall_source, line_comparisons)
+        - final_text: The selected text
+        - overall_source: "tesseract", "ollama", or "hybrid"
+        - line_comparisons: List of dicts with comparison details
+    """
+    tesseract_lines = tesseract_text.split("\n")
+    ollama_lines = ollama_text.split("\n")
+
+    # Pad shorter list with empty strings
+    max_lines = max(len(tesseract_lines), len(ollama_lines))
+    tesseract_lines.extend([""] * (max_lines - len(tesseract_lines)))
+    ollama_lines.extend([""] * (max_lines - len(ollama_lines)))
+
+    final_lines = []
+    line_comparisons = []
+    sources_used = {"tesseract": 0, "ollama": 0, "hybrid": 0}
+
+    for i, (t_line, o_line) in enumerate(zip(tesseract_lines, ollama_lines)):
+        selected_line, source = compare_ocr_line(t_line, o_line, tesseract_conf, ollama_conf)
+        final_lines.append(selected_line)
+        sources_used[source] += 1
+
+        line_comparisons.append({
+            "line_num": i + 1,
+            "tesseract": t_line,
+            "ollama": o_line,
+            "selected": selected_line,
+            "source": source,
+        })
+
+    final_text = "\n".join(final_lines)
+
+    # Determine overall source
+    if sources_used["ollama"] > sources_used["tesseract"] * 1.5:
+        overall_source = "ollama"
+    elif sources_used["tesseract"] > sources_used["ollama"] * 1.5:
+        overall_source = "tesseract"
+    else:
+        overall_source = "hybrid"
+
+    LOGGER.info(
+        "Merged OCR: %d lines, source=%s (tesseract=%d, ollama=%d)",
+        max_lines,
+        overall_source,
+        sources_used["tesseract"],
+        sources_used["ollama"]
+    )
+
+    return final_text, overall_source, line_comparisons
+
+
+def run_hybrid_ocr(source_pdf: Path) -> Dict:
+    """
+    Run hybrid OCR: both Tesseract (via pypdf) and Ollama deepseek-ocr.
+
+    Returns:
+        Dictionary with results for each page:
+        {
+            "pages": [
+                {
+                    "page_index": 0,
+                    "tesseract_text": "...",
+                    "ollama_text": "...",
+                    "final_text": "...",
+                    "tesseract_confidence": 85.0,
+                    "ollama_confidence": 90.0,
+                    "selected_source": "hybrid",
+                    "line_comparisons": [...]
+                },
+                ...
+            ]
+        }
+    """
+    settings = get_settings()
+
+    if not settings.ollama_enabled or not settings.ollama_use_hybrid_ocr:
+        LOGGER.info("Hybrid OCR disabled, skipping")
+        return {"pages": []}
+
+    LOGGER.info("Starting hybrid OCR for %s", source_pdf.name)
+
+    # Extract text with Tesseract (from OCRmyPDF output PDF)
+    try:
+        reader = PdfReader(str(source_pdf))
+        tesseract_pages = [(page.extract_text() or "", 0.0) for page in reader.pages]
+    except Exception as exc:
+        LOGGER.error("Failed to extract Tesseract text: %s", exc)
+        return {"pages": []}
+
+    # Extract confidence scores
+    try:
+        confidence_data = extract_confidence_scores(source_pdf)
+        # Update confidence scores
+        tesseract_pages = [
+            (text, conf[0] if i < len(confidence_data) else 0.0)
+            for i, (text, _) in enumerate(tesseract_pages)
+        ]
+    except Exception as exc:
+        LOGGER.warning("Failed to extract confidence scores: %s", exc)
+
+    # Extract text with Ollama
+    ollama_pages = extract_ollama_ocr(source_pdf)
+
+    # Ensure both lists have the same length
+    max_pages = max(len(tesseract_pages), len(ollama_pages))
+    tesseract_pages.extend([("", 0.0)] * (max_pages - len(tesseract_pages)))
+    ollama_pages.extend([("", 0.0)] * (max_pages - len(ollama_pages)))
+
+    # Merge results page by page
+    pages_data = []
+    for page_index, ((t_text, t_conf), (o_text, o_conf)) in enumerate(zip(tesseract_pages, ollama_pages)):
+        final_text, source, comparisons = merge_ocr_results(t_text, o_text, t_conf, o_conf)
+
+        pages_data.append({
+            "page_index": page_index,
+            "tesseract_text": t_text,
+            "ollama_text": o_text,
+            "final_text": final_text,
+            "tesseract_confidence": t_conf,
+            "ollama_confidence": o_conf,
+            "selected_source": source,
+            "line_comparisons": comparisons,
+        })
+
+    LOGGER.info("Hybrid OCR completed for %s: %d pages", source_pdf.name, len(pages_data))
+
+    return {"pages": pages_data}

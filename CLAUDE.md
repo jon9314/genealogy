@@ -106,13 +106,24 @@ The backend is a FastAPI application organized into modular API routers and core
   - Patterns: `PERSON_PATTERN` matches "Gen-- Name (birth-death)" format, `SPOUSE_PATTERN` matches "sp- Name" format
   - Builds genealogical relationships by maintaining a generation stack and linking children to parent families
   - Handles approximate dates/data by detecting keywords like "abt", "circa", "?" and sets `approx` flags
-- `models.py` - SQLModel entities (Source, Person, Family, Child) with upsert logic
+  - **LLM Fallback:** When regex patterns fail, uses `llm_parser.py` to parse ambiguous lines with Ollama
+- `models.py` - SQLModel entities (Source, Person, Family, Child, PageText) with upsert logic
   - Person deduplication uses Levenshtein distance (≤2) on normalized names + birth year matching
   - Family uniqueness enforced by `source_id + husband_id + wife_id` constraint
   - `line_key` field tracks the original OCR line to enable idempotent re-parsing
+  - PageText model stores dual OCR results (Tesseract + Ollama) with confidence scores
 - `gedcom.py` - GEDCOM 5.5.1 export with ged4py fallback to manual writer
 - `ocr_runner.py` - Subprocess wrapper for OCRmyPDF with configurable options
   - Uses `--skip-text` flag to preserve existing text in PDFs (only OCRs image-only pages)
+  - **Hybrid OCR:** `run_hybrid_ocr()` runs both Tesseract and Ollama deepseek-ocr, compares results line-by-line
+  - **Confidence Scoring:** `extract_confidence_scores()` provides line-level OCR quality metrics
+- `ollama_helper.py` - Ollama LLM integration for OCR correction and parsing
+  - `correct_ocr_line()` fixes OCR errors in generation markers and dates
+  - `parse_line_with_llm()` extracts structured genealogy data from ambiguous text
+  - `split_multi_person_line()` handles multiple people on one line
+- `llm_parser.py` - Context-aware parsing with LLM fallback for ambiguous cases
+  - `LLMParser` class manages parsing statistics and fallback logic
+  - Used automatically when regex patterns fail or OCR confidence is low
 - `settings.py` - Environment-based configuration using pydantic-settings
 
 **Database:** `backend/app/db.py` manages SQLite connection and initialization
@@ -120,7 +131,11 @@ The backend is a FastAPI application organized into modular API routers and core
 **API routers in `backend/app/api/`:**
 - `files.py` - Upload, list, delete PDF sources
 - `ocr.py` - Trigger OCR on a source, check OCR status
+  - `GET /api/ocr/{source_id}/hybrid-comparison` - Compare Tesseract vs Ollama OCR results
+  - `GET /api/ocr/{source_id}/confidence` - Get confidence score breakdown
 - `parse.py` - Parse OCR text into genealogy entities
+  - `GET /api/parse/llm-stats` - Get LLM parsing statistics
+  - `POST /api/parse/llm-stats/reset` - Reset LLM statistics
 - `people.py` - CRUD operations for persons
 - `families.py` - Family management and reparenting logic
 - `export.py` - GEDCOM and CSV export endpoints
@@ -178,12 +193,27 @@ The parser in `backend/app/core/parser.py` is the heart of the system:
 
 Prefix all with `GENEALOGY_`:
 
+**Core Settings:**
 - `GENEALOGY_DATABASE_PATH` - SQLite path (default: `./data/app.db`)
+
+**OCRmyPDF Settings:**
 - `GENEALOGY_OCRMYPDF_EXECUTABLE` - OCRmyPDF binary path (default: `ocrmypdf`)
 - `GENEALOGY_OCRMYPDF_LANGUAGE` - Tesseract language pack (default: `eng`)
 - `GENEALOGY_OCRMYPDF_REMOVE_BACKGROUND` - Enable background removal (default: `false`)
 - `GENEALOGY_OCRMYPDF_FAST_WEB_VIEW_MB` - Target size for fast web view optimization (default: `200`, set to `0` to disable)
 - `GENEALOGY_OCRMYPDF_TIMEOUT_SECS` - OCR timeout in seconds (default: `600`)
+
+**Ollama LLM Settings:**
+- `GENEALOGY_OLLAMA_ENABLED` - Enable Ollama integration (default: `false`)
+- `GENEALOGY_OLLAMA_BASE_URL` - Ollama server URL (default: `http://localhost:11434`)
+- `GENEALOGY_OLLAMA_OCR_MODEL` - Model for OCR correction (default: `deepseek-ocr:3b`)
+- `GENEALOGY_OLLAMA_PARSE_MODEL` - Model for context-aware parsing (default: `qwen3:8b`)
+- `GENEALOGY_OLLAMA_TIMEOUT_SECS` - LLM request timeout (default: `30`)
+- `GENEALOGY_OLLAMA_USE_HYBRID_OCR` - Enable hybrid OCR (default: `true`)
+- `GENEALOGY_OLLAMA_USE_CONTEXT_PARSE` - Enable LLM parsing fallback (default: `true`)
+- `GENEALOGY_OLLAMA_CONFIDENCE_THRESHOLD` - Confidence threshold for LLM fallback (default: `0.7`)
+
+See `OLLAMA_SETUP.md` for detailed Ollama configuration and setup instructions.
 
 ## Database Migrations
 

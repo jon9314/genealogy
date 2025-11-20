@@ -27,6 +27,16 @@ class Settings(BaseSettings):
     ocrmypdf_fast_web_view_mb: int = Field(default=200)
     ocrmypdf_timeout_secs: int = Field(default=600)
 
+    # Ollama LLM settings for OCR correction and parsing
+    ollama_enabled: bool = Field(default=False)
+    ollama_base_url: str = Field(default="http://localhost:11434")
+    ollama_ocr_model: str = Field(default="deepseek-ocr:3b")
+    ollama_parse_model: str = Field(default="qwen3:8b")
+    ollama_timeout_secs: int = Field(default=30)
+    ollama_use_hybrid_ocr: bool = Field(default=True)
+    ollama_use_context_parse: bool = Field(default=True)
+    ollama_confidence_threshold: float = Field(default=0.7)
+
     model_config = SettingsConfigDict(
         env_prefix="GENEALOGY_",
         case_sensitive=False,

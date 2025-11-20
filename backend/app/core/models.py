@@ -38,6 +38,14 @@ class PageTextBase(SQLModel):
     confidence: Optional[float] = None  # Average confidence for page (0-100)
     line_confidences: Optional[str] = None  # JSON array of per-line confidence scores
 
+    # Hybrid OCR fields for storing dual OCR results
+    ocr_source: Optional[str] = None  # "tesseract", "ollama", or "hybrid"
+    tesseract_text: Optional[str] = None  # Original OCRmyPDF text
+    ollama_text: Optional[str] = None  # deepseek-ocr text
+    tesseract_confidence: Optional[float] = None  # Tesseract average confidence
+    ollama_confidence: Optional[float] = None  # Ollama confidence score
+    selected_source: Optional[str] = None  # Which source was chosen for final text
+
 
 class PageText(PageTextBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)

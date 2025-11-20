@@ -10,6 +10,7 @@ from sqlmodel import Session, delete, select
 
 from ..core.models import Child, Family, PageText, Person, Source
 from ..core.parser import parse_ocr_text
+from ..core.llm_parser import get_llm_parser
 from ..db import get_session
 
 router = APIRouter(prefix="/parse", tags=["parse"])
@@ -223,3 +224,41 @@ def check_parser_versions(session: Session = Depends(get_session)) -> JSONRespon
         "outdated_sources": outdated_sources,
         "current_sources": current_sources
     })
+
+
+@router.get("/llm-stats")
+def get_llm_parsing_stats() -> JSONResponse:
+    """
+    Get statistics about LLM-assisted parsing.
+
+    Returns metrics about how many lines were parsed with LLM fallback,
+    success rate, and types of issues encountered.
+    """
+    from ..core.settings import get_settings
+
+    settings = get_settings()
+
+    if not settings.ollama_enabled:
+        return JSONResponse({
+            "enabled": False,
+            "message": "LLM parsing is disabled. Enable with GENEALOGY_OLLAMA_ENABLED=true"
+        })
+
+    llm_parser = get_llm_parser()
+
+    stats = llm_parser.get_stats()
+    stats["enabled"] = True
+    stats["ollama_available"] = llm_parser.is_available()
+    stats["ocr_model"] = settings.ollama_ocr_model
+    stats["parse_model"] = settings.ollama_parse_model
+    stats["confidence_threshold"] = settings.ollama_confidence_threshold
+
+    return JSONResponse(stats)
+
+
+@router.post("/llm-stats/reset")
+def reset_llm_parsing_stats() -> JSONResponse:
+    """Reset LLM parsing statistics."""
+    llm_parser = get_llm_parser()
+    llm_parser.reset_stats()
+    return JSONResponse({"status": "reset", "message": "LLM parsing statistics have been reset"})

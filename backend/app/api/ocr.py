@@ -18,6 +18,7 @@ from ..core.ocr_runner import (
     get_ocr_result,
     get_notifications,
     clear_notification,
+    run_hybrid_ocr,
 )
 from ..core.parser import PERSON_PATTERN, PERSON_PATTERN_ALT, SPOUSE_PATTERN
 from ..core.settings import get_settings
@@ -210,3 +211,91 @@ def validate_ocr_text(
         ))
 
     return validations
+
+
+@router.get("/{source_id}/hybrid-comparison")
+def get_hybrid_ocr_comparison(
+    source_id: int,
+    session: Session = Depends(get_session)
+) -> JSONResponse:
+    """
+    Get hybrid OCR comparison between Tesseract and Ollama for debugging/review.
+
+    Returns line-by-line comparison showing which source was selected for each line.
+    """
+    source = session.get(Source, source_id)
+    if not source:
+        raise HTTPException(status_code=404, detail="Source not found")
+
+    settings = get_settings()
+    if not settings.ollama_enabled or not settings.ollama_use_hybrid_ocr:
+        raise HTTPException(
+            status_code=400,
+            detail="Hybrid OCR is disabled. Enable with GENEALOGY_OLLAMA_ENABLED=true"
+        )
+
+    pdf_path = Path(source.path)
+    if not pdf_path.exists():
+        raise HTTPException(status_code=404, detail="Source file missing on disk")
+
+    # Check for OCR'd PDF
+    ocr_pdf = settings.ocr_dir / f"{pdf_path.stem}-ocr.pdf"
+    if not ocr_pdf.exists():
+        raise HTTPException(
+            status_code=400,
+            detail="OCR must be completed first. Run OCR on this source before requesting hybrid comparison."
+        )
+
+    try:
+        result = run_hybrid_ocr(ocr_pdf)
+        return JSONResponse(result)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Hybrid OCR failed: {str(exc)}")
+
+
+@router.get("/{source_id}/confidence")
+def get_confidence_breakdown(
+    source_id: int,
+    session: Session = Depends(get_session)
+) -> JSONResponse:
+    """Get detailed confidence score breakdown for all pages."""
+    source = session.get(Source, source_id)
+    if not source:
+        raise HTTPException(status_code=404, detail="Source not found")
+
+    pages = session.exec(
+        select(PageText)
+        .where(PageText.source_id == source_id)
+        .order_by(PageText.page_index)
+    ).all()
+
+    if not pages:
+        raise HTTPException(status_code=404, detail="No OCR data found")
+
+    result = {
+        "source_id": source_id,
+        "source_name": source.name,
+        "pages": []
+    }
+
+    for page in pages:
+        page_data = {
+            "page_index": page.page_index,
+            "confidence": page.confidence,
+            "ocr_source": page.ocr_source,
+            "tesseract_confidence": page.tesseract_confidence,
+            "ollama_confidence": page.ollama_confidence,
+            "selected_source": page.selected_source,
+        }
+
+        # Parse line confidences if available
+        if page.line_confidences:
+            import json
+            try:
+                page_data["line_confidences"] = json.loads(page.line_confidences)
+            except json.JSONDecodeError:
+                page_data["line_confidences"] = []
+
+        result["pages"].append(page_data)
+
+    return JSONResponse(result)
