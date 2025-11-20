@@ -18,9 +18,9 @@ PARSER_VERSION = "2.0.0"
 
 DASH_VARIANTS = "\u2010\u2011\u2012\u2013\u2014\u2015\u2212"
 # Primary pattern: II-- Name (double dash format)
-PERSON_PATTERN = re.compile(r"^\s*(?:[xX×✗✘]+\s*){0,2}\s*([0-9Il|O]{1,2})\s*--\s+(.*)$")
+PERSON_PATTERN = re.compile(r"^\s*(?:[xX×✗✘]+\s*){0,2}\s*([0-9Il|ODAPdap]{1,3})\s*--\s*(.*)$")
 # Alternative pattern: 1. Name or I. Name (period format)
-PERSON_PATTERN_ALT = re.compile(r"^\s*(?:[xX×✗✘]+\s*){0,2}\s*([IVXivx0-9]{1,3})\.\s+(.*)$")
+PERSON_PATTERN_ALT = re.compile(r"^\s*(?:[xX×✗✘]+\s*){0,2}\s*([IVXivxDAPdap0-9]{1,3})\.\s+(.*)$")
 SPOUSE_PATTERN = re.compile(r"^\s*sp-\s*(.*)$", re.IGNORECASE)
 HEADER_PATTERNS = [
     re.compile(r"^\s*Page\s+\d+\s*$", re.IGNORECASE),
@@ -30,7 +30,7 @@ HEADER_PATTERNS = [
     ),
     re.compile(r"^\s*(Descendancy|Descendency|Descendants|Genealogy)\b.*$", re.IGNORECASE),
 ]
-GEN_CHAR_MAP = str.maketrans({'I': '1', 'l': '1', '|': '1', 'O': '0', 'o': '0'})
+GEN_CHAR_MAP = str.maketrans({'I': '1', 'l': '1', '|': '1', 'O': '0', 'o': '0', 'D': '1', 'd': '1', 'A': '1', 'a': '1', 'P': '1', 'p': '1'})
 
 APPROX_WORD_RE = re.compile(r"\b(?:abt|about|approx|around|circa|ca\.?|c\.?|bef\.?|aft\.?|before|after)\b", re.IGNORECASE)
 
@@ -72,8 +72,9 @@ def _is_header(line: str) -> bool:
 
 
 def _split_records(line: str) -> List[str]:
-    # Match both formats: "II--" or "1." or "sp-"
-    pattern = re.compile(r"(\d+--|[IVXivx0-9]{1,3}\.|sp-)", re.IGNORECASE)
+    # Match both formats: "II--" or "1." or "sp-" or "D--" (letter gen markers)
+    # Limit numeric generation markers to 1-3 digits to avoid matching ID numbers
+    pattern = re.compile(r"([0-9DAPdap]{1,3}--|[IVXivx0-9]{1,3}\.|sp-)", re.IGNORECASE)
     matches = list(pattern.finditer(line))
     if not matches:
         return [line]
@@ -103,6 +104,11 @@ def normalize_ocr_text(page: str) -> List[str]:
     # Match both start of line and after closing paren/digit (handles inline records)
     text_value = re.sub(r"(^|\)|\d)\s*(\d+)\s*[*+]{1}\s*-", r"\1\2-- ", text_value, flags=re.MULTILINE)
     text_value = re.sub(r"(?m)^(\s*\d+)\s*-{1,2}\s*", r"\1-- ", text_value)
+    # Normalize letter generation markers (D, A, P) with OCR errors like "D t-~" or "D *-" to "D--"
+    text_value = re.sub(r"(?m)^(\s*[DAPdap])\s+[t*+~-]+\s*", r"\1-- ", text_value)
+    # Remove person ID numbers (like "-612") to prevent them from being confused with generation markers
+    # This must happen before splitting records
+    text_value = re.sub(r"-(\d{3,})", r"", text_value)
 
     lines: List[str] = []
     buffer: Optional[str] = None
@@ -335,6 +341,7 @@ class PersonRecord:
     page_index: int
     line_index: int
     is_spouse: bool  # True if this person was parsed from a spouse line
+    is_second_spouse_marker: bool = False  # True if Gen 0 (second spouse at parent level)
 
 
 def extract_persons_pass1(
@@ -383,8 +390,17 @@ def extract_persons_pass1(
                 if normalized_gen:
                     gen = int(normalized_gen)
 
-            if gen is None:
-                LOGGER.debug('Skipping line with unparseable generation token: %s', raw_line)
+            # Handle Gen 0 specially: it means "second spouse at parent (Gen 1) level"
+            if gen == 0:
+                LOGGER.info('Found Gen 0 marker (second spouse at parent level): %s', raw_line)
+                # Treat as Gen 1 spouse, but mark it specially
+                gen = 1
+                is_second_spouse_marker = True
+            else:
+                is_second_spouse_marker = False
+
+            if gen is None or gen > 20:
+                LOGGER.debug('Skipping line with unparseable or invalid generation token (gen=%s): %s', gen, raw_line)
                 flagged_lines.append(raw_line)
                 continue
 
@@ -414,6 +430,7 @@ def extract_persons_pass1(
                     page_index=page_index,
                     line_index=line_index,
                     is_spouse=False,
+                    is_second_spouse_marker=is_second_spouse_marker,
                 )
                 person_records.append(record)
                 last_principal_person = record
@@ -447,6 +464,7 @@ def extract_persons_pass1(
                     page_index=page_index,
                     line_index=line_index,
                     is_spouse=True,
+                    is_second_spouse_marker=False,
                 )
                 person_records.append(record)
             continue
@@ -470,8 +488,14 @@ def build_relationships_pass2(
     children_seen: set = set()
 
     # Track the most recent person at each generation level
-    # Key: generation number, Value: PersonRecord
-    gen_tracker: Dict[int, PersonRecord] = {}
+    # Key: generation number, Value: person_id (not PersonRecord object!)
+    gen_tracker: Dict[int, int] = {}
+
+    # Track the progenitor (first Gen 1 person) for Gen 0 second spouse markers
+    progenitor_id: Optional[int] = None
+
+    # Track spouse relationships: principal_person_id -> spouse_person_id
+    spouse_map: Dict[int, int] = {}
 
     # Track families we've created to avoid duplicates
     # Key: (person_id, spouse_id), Value: Family
@@ -487,18 +511,31 @@ def build_relationships_pass2(
         if not person:
             continue
 
-        if record.is_spouse:
-            # This is a spouse - find their principal person (should be previous non-spouse at same gen)
-            # Look backward for the most recent non-spouse at this generation
-            principal_record = None
-            for prev_record in reversed(person_records[:person_records.index(record)]):
-                if prev_record.gen == gen and not prev_record.is_spouse:
-                    principal_record = prev_record
-                    break
+        if record.is_spouse or record.is_second_spouse_marker:
+            # This is a spouse - find their principal person
+            principal_id = None
 
-            if principal_record:
+            if record.is_second_spouse_marker:
+                # Gen 0 marker: this is a second spouse at parent (Gen 1) level
+                # Link to the PROGENITOR (first Gen 1 person), not current gen_tracker[1]
+                principal_id = progenitor_id
+                if not principal_id:
+                    LOGGER.warning('Gen 0 second spouse marker found, but no progenitor found')
+                    continue
+                LOGGER.info(f'Linking Gen 0 second spouse (Person {person_id}) to progenitor (Person {principal_id})')
+            else:
+                # Regular spouse - find previous non-spouse at same gen
+                for prev_record in reversed(person_records[:person_records.index(record)]):
+                    if prev_record.gen == gen and not prev_record.is_spouse:
+                        principal_id = prev_record.person_id
+                        break
+
+            if principal_id:
+                # Store spouse mapping
+                spouse_map[principal_id] = person_id
+
                 # Create or update family for this couple
-                pair = tuple(sorted((principal_record.person_id, person_id)))
+                pair = tuple(sorted((principal_id, person_id)))
                 if pair not in family_cache:
                     family_key = _family_line_key(
                         source_id,
@@ -507,7 +544,7 @@ def build_relationships_pass2(
                         pair[0],
                         pair[1],
                     )
-                    principal_person = session.get(Person, principal_record.person_id)
+                    principal_person = session.get(Person, principal_id)
                     approx = bool(person.approx) or bool(principal_person and principal_person.approx)
 
                     family = Family.upsert_couple(
@@ -522,29 +559,38 @@ def build_relationships_pass2(
                     family_cache[pair] = family
                     if family.id:
                         families_seen.add(family.id)
+
+                # For Gen 0 second spouse: update gen_tracker and spouse_map
+                # so subsequent children at Gen 2+ link to this new family
+                if record.is_second_spouse_marker:
+                    gen_tracker[1] = principal_id
+                    spouse_map[principal_id] = person_id
+                    LOGGER.info(f'Updated gen_tracker[1] = {principal_id}, spouse_map[{principal_id}] = {person_id}')
         else:
             # This is a principal person (not a spouse line)
             # Update the generation tracker
-            gen_tracker[gen] = record
+            gen_tracker[gen] = person_id
+
+            # Track the progenitor (first Gen 1 person) for Gen 0 second spouse markers
+            if gen == 1 and progenitor_id is None:
+                progenitor_id = person_id
+                LOGGER.info(f'Progenitor set: Person {progenitor_id}')
 
             # Clear all deeper generations (new branch)
             keys_to_remove = [g for g in gen_tracker.keys() if g > gen]
             for g in keys_to_remove:
+                # Also clear spouse mappings for those generations
+                old_person_id = gen_tracker[g]
+                if old_person_id in spouse_map:
+                    del spouse_map[old_person_id]
                 del gen_tracker[g]
 
             # If this person is Gen N, link them as child to Gen N-1 parent
             if gen > 1 and (gen - 1) in gen_tracker:
-                parent_record = gen_tracker[gen - 1]
-                parent_id = parent_record.person_id
+                parent_id = gen_tracker[gen - 1]
 
-                # Find or create family for parent
-                # Check if parent has a spouse (look for spouse record right after parent)
-                parent_idx = person_records.index(parent_record)
-                spouse_id = None
-                if parent_idx + 1 < len(person_records):
-                    next_record = person_records[parent_idx + 1]
-                    if next_record.is_spouse and next_record.gen == gen - 1:
-                        spouse_id = next_record.person_id
+                # Check if parent has a spouse using spouse_map
+                spouse_id = spouse_map.get(parent_id)
 
                 # Get or create family
                 if spouse_id:
