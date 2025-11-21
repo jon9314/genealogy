@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     # Ollama LLM settings for OCR correction and parsing
     ollama_enabled: bool = Field(default=False)
     ollama_base_url: str = Field(default="http://localhost:11434")
-    ollama_ocr_model: str = Field(default="deepseek-ocr:3b")
+    ollama_ocr_model: str = Field(default="qwen3:8b")  # Using qwen3:8b for both OCR and parsing
     ollama_parse_model: str = Field(default="qwen3:8b")
     ollama_timeout_secs: int = Field(default=30)
     ollama_use_hybrid_ocr: bool = Field(default=True)
