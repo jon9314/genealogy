@@ -3,7 +3,6 @@ name = "genealogy-backend"
 version = "0.1.0"
 description = "Local genealogy OCR and GEDCOM export backend"
 authors = [{ name = "GenealogyApp", email = "support@example.com" }]
-readme = "../README.md"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115,<0.118",
