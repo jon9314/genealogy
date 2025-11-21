@@ -44,9 +44,8 @@ class OllamaClient:
         self.client = None
         if self.settings.ollama_enabled:
             try:
-                # Initialize connection
-                ollama.Client(host=self.settings.ollama_base_url)
-                self.client = ollama
+                # Initialize connection - store the client instance
+                self.client = ollama.Client(host=self.settings.ollama_base_url)
                 LOGGER.info("Ollama client initialized: %s", self.settings.ollama_base_url)
             except Exception as exc:
                 LOGGER.error("Failed to initialize Ollama client: %s", exc)
