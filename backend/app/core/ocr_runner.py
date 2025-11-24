@@ -16,7 +16,7 @@ import pytesseract
 from pypdf import PdfReader
 
 from .settings import Settings, get_settings
-from .ollama_helper import get_ollama_client, correct_ocr_line
+from .ollama_helper import get_llm_client, correct_ocr_line, ocr_image_with_vision
 
 
 LOGGER = logging.getLogger(__name__)
@@ -353,18 +353,22 @@ def extract_confidence_scores(source_pdf: Path) -> List[Tuple[float, str]]:
     return results
 
 
-def extract_ollama_ocr(source_pdf: Path) -> List[Tuple[str, float]]:
+def extract_ollama_ocr(source_pdf: Path, use_vision: bool = True) -> List[Tuple[str, float]]:
     """
-    Extract text using Ollama deepseek-ocr model.
+    Extract text using Ollama vision model for OCR.
+
+    Args:
+        source_pdf: Path to the PDF file
+        use_vision: If True, use vision model for direct OCR. If False, use text correction approach.
 
     Returns:
         List of tuples: (text, confidence) for each page
     """
     settings = get_settings()
-    client = get_ollama_client()
+    client = get_llm_client()
 
-    if not settings.ollama_enabled or not client.is_available():
-        LOGGER.warning("Ollama not available for OCR")
+    if not client.is_available():
+        LOGGER.warning("LLM provider not available for OCR")
         return []
 
     try:
@@ -378,36 +382,57 @@ def extract_ollama_ocr(source_pdf: Path) -> List[Tuple[str, float]]:
 
     for page_num, image in enumerate(images):
         try:
-            # Use pytesseract to get raw text first, then correct with Ollama
-            lang = settings.ocrmypdf_language or "eng"
-            raw_text = pytesseract.image_to_string(image, lang=lang)
+            if use_vision:
+                # Use vision LLM for direct OCR
+                import io
+                img_byte_arr = io.BytesIO()
+                image.save(img_byte_arr, format='PNG')
+                img_bytes = img_byte_arr.getvalue()
 
-            # Correct each line with Ollama deepseek-ocr
-            corrected_lines = []
-            for line in raw_text.split("\n"):
-                if line.strip():
-                    corrected_line = correct_ocr_line(line.strip(), model=settings.ollama_ocr_model)
-                    corrected_lines.append(corrected_line)
-                else:
-                    corrected_lines.append("")
+                # Use vision model for OCR
+                vision_text = ocr_image_with_vision(img_bytes, model=settings.ollama_ocr_model)
 
-            corrected_text = "\n".join(corrected_lines)
+                # High confidence for vision model
+                confidence = 90.0 if vision_text else 0.0
 
-            # Estimate confidence based on corrections made
-            # More corrections = lower confidence in original = higher confidence in corrected
-            if raw_text != corrected_text:
-                confidence = 85.0  # High confidence when corrections were made
+                results.append((vision_text, confidence))
+
+                LOGGER.info(
+                    "Vision OCR for page %d: %d chars (confidence=%.2f)",
+                    page_num + 1,
+                    len(vision_text),
+                    confidence
+                )
             else:
-                confidence = 75.0  # Medium confidence when no corrections needed
+                # Fallback: Use pytesseract to get raw text first, then correct with Ollama
+                lang = settings.ocrmypdf_language or "eng"
+                raw_text = pytesseract.image_to_string(image, lang=lang)
 
-            results.append((corrected_text, confidence))
+                # Correct each line with Ollama
+                corrected_lines = []
+                for line in raw_text.split("\n"):
+                    if line.strip():
+                        corrected_line = correct_ocr_line(line.strip(), model=settings.ollama_ocr_model)
+                        corrected_lines.append(corrected_line)
+                    else:
+                        corrected_lines.append("")
 
-            LOGGER.info(
-                "Ollama OCR for page %d: %d chars (confidence=%.2f)",
-                page_num + 1,
-                len(corrected_text),
-                confidence
-            )
+                corrected_text = "\n".join(corrected_lines)
+
+                # Estimate confidence based on corrections made
+                if raw_text != corrected_text:
+                    confidence = 85.0  # High confidence when corrections were made
+                else:
+                    confidence = 75.0  # Medium confidence when no corrections needed
+
+                results.append((corrected_text, confidence))
+
+                LOGGER.info(
+                    "Ollama OCR for page %d: %d chars (confidence=%.2f)",
+                    page_num + 1,
+                    len(corrected_text),
+                    confidence
+                )
 
         except Exception as exc:
             LOGGER.error("Failed Ollama OCR for page %d: %s", page_num + 1, exc)

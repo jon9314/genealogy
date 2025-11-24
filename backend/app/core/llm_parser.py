@@ -6,7 +6,7 @@ import logging
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 
-from .ollama_helper import get_ollama_client, parse_line_with_llm, ParsedPerson, split_multi_person_line
+from .ollama_helper import get_llm_client, parse_line_with_llm, ParsedPerson, split_multi_person_line
 from .settings import get_settings
 
 LOGGER = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ class LLMParser:
 
     def __init__(self):
         self.settings = get_settings()
-        self.client = get_ollama_client()
+        self.client = get_llm_client()
         self.stats = {
             "total_attempts": 0,
             "successful_parses": 0,
@@ -37,11 +37,17 @@ class LLMParser:
 
     def is_available(self) -> bool:
         """Check if LLM parsing is available."""
-        return (
-            self.settings.ollama_enabled
-            and self.settings.ollama_use_context_parse
-            and self.client.is_available()
-        )
+        if self.settings.llm_provider == "openrouter":
+            return (
+                self.settings.openrouter_use_context_parse
+                and self.client.is_available()
+            )
+        else:  # ollama
+            return (
+                self.settings.ollama_enabled
+                and self.settings.ollama_use_context_parse
+                and self.client.is_available()
+            )
 
     def parse_ambiguous_line(
         self,
@@ -72,9 +78,16 @@ class LLMParser:
 
         LOGGER.info("LLM parsing ambiguous line (reason=%s): %s", reason, line[:80])
 
+        # Get the appropriate model based on provider
+        parse_model = (
+            self.settings.openrouter_parse_model
+            if self.settings.llm_provider == "openrouter"
+            else self.settings.ollama_parse_model
+        )
+
         # Try to split if it looks like multiple people
         if self._looks_like_multi_person(line):
-            split_lines = split_multi_person_line(line, model=self.settings.ollama_parse_model)
+            split_lines = split_multi_person_line(line, model=parse_model)
             if len(split_lines) > 1:
                 LOGGER.info("Split into %d lines", len(split_lines))
                 self.stats["multi_person_splits"] += 1
@@ -85,7 +98,7 @@ class LLMParser:
                     parsed = parse_line_with_llm(
                         split_line,
                         context=context,
-                        model=self.settings.ollama_parse_model
+                        model=parse_model
                     )
                     if parsed:
                         persons.append(parsed)
@@ -103,7 +116,7 @@ class LLMParser:
         parsed = parse_line_with_llm(
             line,
             context=context,
-            model=self.settings.ollama_parse_model
+            model=parse_model
         )
 
         if parsed:
