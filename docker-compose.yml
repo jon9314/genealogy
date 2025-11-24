@@ -6,6 +6,8 @@ services:
       - "8001:8000"
     volumes:
       - ./data:/app/data
+    env_file:
+      - .env
     environment:
       - GENEALOGY_DATABASE_PATH=/app/data/app.db
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
