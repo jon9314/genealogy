@@ -1,15 +1,34 @@
 import { useEffect, useState } from "react";
-import { getRateLimitSettings, updateRateLimitSettings, type RateLimitSettings } from "../lib/api";
+import {
+  getRateLimitSettings,
+  updateRateLimitSettings,
+  type RateLimitSettings,
+  getOpenRouterModels,
+  getOpenRouterSettings,
+  updateOpenRouterSettings,
+  type ModelInfo,
+  type OpenRouterSettings
+} from "../lib/api";
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState<RateLimitSettings>({
+  const [rateLimitSettings, setRateLimitSettings] = useState<RateLimitSettings>({
     enabled: false,
     max_requests_per_minute: 10,
     openrouter_only: true,
   });
+  const [openRouterSettings, setOpenRouterSettings] = useState<OpenRouterSettings>({
+    ocr_model: "",
+    parse_model: "",
+    use_hybrid_ocr: false,
+    use_context_parse: false,
+    confidence_threshold: 0.7,
+  });
+  const [models, setModels] = useState<ModelInfo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [savingRate, setSavingRate] = useState(false);
+  const [savingOpenRouter, setSavingOpenRouter] = useState(false);
+  const [rateMessage, setRateMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [openRouterMessage, setOpenRouterMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
     loadSettings();
@@ -17,28 +36,49 @@ export default function SettingsPage() {
 
   const loadSettings = async () => {
     try {
-      const data = await getRateLimitSettings();
-      setSettings(data);
+      const [rateData, openRouterData, modelsData] = await Promise.all([
+        getRateLimitSettings(),
+        getOpenRouterSettings(),
+        getOpenRouterModels().catch(() => [] as ModelInfo[])
+      ]);
+      setRateLimitSettings(rateData);
+      setOpenRouterSettings(openRouterData);
+      setModels(modelsData);
     } catch (err) {
       console.error("Failed to load settings:", err);
-      setMessage({ type: "error", text: "Failed to load settings" });
+      setRateMessage({ type: "error", text: "Failed to load settings" });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    setMessage(null);
+  const handleSaveRateLimit = async () => {
+    setSavingRate(true);
+    setRateMessage(null);
 
     try {
-      await updateRateLimitSettings(settings);
-      setMessage({ type: "success", text: "Settings saved successfully!" });
+      await updateRateLimitSettings(rateLimitSettings);
+      setRateMessage({ type: "success", text: "Rate limit settings saved successfully!" });
     } catch (err) {
-      console.error("Failed to save settings:", err);
-      setMessage({ type: "error", text: "Failed to save settings" });
+      console.error("Failed to save rate limit settings:", err);
+      setRateMessage({ type: "error", text: "Failed to save settings" });
     } finally {
-      setSaving(false);
+      setSavingRate(false);
+    }
+  };
+
+  const handleSaveOpenRouter = async () => {
+    setSavingOpenRouter(true);
+    setOpenRouterMessage(null);
+
+    try {
+      await updateOpenRouterSettings(openRouterSettings);
+      setOpenRouterMessage({ type: "success", text: "OpenRouter settings saved! Restart server to apply changes." });
+    } catch (err) {
+      console.error("Failed to save OpenRouter settings:", err);
+      setOpenRouterMessage({ type: "error", text: "Failed to save settings" });
+    } finally {
+      setSavingOpenRouter(false);
     }
   };
 
@@ -83,8 +123,8 @@ export default function SettingsPage() {
             }}>
               <input
                 type="checkbox"
-                checked={settings.enabled}
-                onChange={(e) => setSettings({ ...settings, enabled: e.target.checked })}
+                checked={rateLimitSettings.enabled}
+                onChange={(e) => setRateLimitSettings({ ...rateLimitSettings, enabled: e.target.checked })}
                 style={{ width: "18px", height: "18px", cursor: "pointer" }}
               />
               <span style={{ fontWeight: 500 }}>Enable Rate Limiting</span>
@@ -95,7 +135,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Max Requests */}
-          <div style={{ opacity: settings.enabled ? 1 : 0.5 }}>
+          <div style={{ opacity: rateLimitSettings.enabled ? 1 : 0.5 }}>
             <label style={{ display: "block", fontSize: "0.95rem", fontWeight: 500, marginBottom: "0.5rem" }}>
               Maximum Requests Per Minute
             </label>
@@ -103,9 +143,9 @@ export default function SettingsPage() {
               type="number"
               min="1"
               max="1000"
-              value={settings.max_requests_per_minute}
-              onChange={(e) => setSettings({ ...settings, max_requests_per_minute: parseInt(e.target.value) || 10 })}
-              disabled={!settings.enabled}
+              value={rateLimitSettings.max_requests_per_minute}
+              onChange={(e) => setRateLimitSettings({ ...rateLimitSettings, max_requests_per_minute: parseInt(e.target.value) || 10 })}
+              disabled={!rateLimitSettings.enabled}
               style={{
                 width: "150px",
                 padding: "0.5rem",
@@ -120,20 +160,20 @@ export default function SettingsPage() {
           </div>
 
           {/* OpenRouter Only */}
-          <div style={{ opacity: settings.enabled ? 1 : 0.5 }}>
+          <div style={{ opacity: rateLimitSettings.enabled ? 1 : 0.5 }}>
             <label style={{
               display: "flex",
               alignItems: "center",
               gap: "0.5rem",
-              cursor: settings.enabled ? "pointer" : "not-allowed",
+              cursor: rateLimitSettings.enabled ? "pointer" : "not-allowed",
               fontSize: "0.95rem"
             }}>
               <input
                 type="checkbox"
-                checked={settings.openrouter_only}
-                onChange={(e) => setSettings({ ...settings, openrouter_only: e.target.checked })}
-                disabled={!settings.enabled}
-                style={{ width: "18px", height: "18px", cursor: settings.enabled ? "pointer" : "not-allowed" }}
+                checked={rateLimitSettings.openrouter_only}
+                onChange={(e) => setRateLimitSettings({ ...rateLimitSettings, openrouter_only: e.target.checked })}
+                disabled={!rateLimitSettings.enabled}
+                style={{ width: "18px", height: "18px", cursor: rateLimitSettings.enabled ? "pointer" : "not-allowed" }}
               />
               <span style={{ fontWeight: 500 }}>Apply to OpenRouter API Only</span>
             </label>
@@ -168,49 +208,213 @@ export default function SettingsPage() {
         <div style={{ marginTop: "1.5rem", display: "flex", gap: "1rem", alignItems: "center" }}>
           <button
             className="btn"
-            onClick={handleSave}
-            disabled={saving}
+            onClick={handleSaveRateLimit}
+            disabled={savingRate}
             style={{ minWidth: "120px" }}
           >
-            {saving ? "Saving..." : "Save Settings"}
+            {savingRate ? "Saving..." : "Save Settings"}
           </button>
 
-          {message && (
+          {rateMessage && (
             <div style={{
               padding: "0.5rem 1rem",
               borderRadius: "6px",
               fontSize: "0.9rem",
-              backgroundColor: message.type === "success" ? "#dcfce7" : "#fee2e2",
-              color: message.type === "success" ? "#166534" : "#991b1b",
-              border: `1px solid ${message.type === "success" ? "#bbf7d0" : "#fecaca"}`
+              backgroundColor: rateMessage.type === "success" ? "#dcfce7" : "#fee2e2",
+              color: rateMessage.type === "success" ? "#166534" : "#991b1b",
+              border: `1px solid ${rateMessage.type === "success" ? "#bbf7d0" : "#fecaca"}`
             }}>
-              {message.text}
+              {rateMessage.text}
             </div>
           )}
         </div>
       </section>
 
-      {/* OpenRouter Info */}
+      {/* OpenRouter Configuration */}
       <section style={{
-        backgroundColor: "#f9fafb",
+        backgroundColor: "white",
         border: "1px solid #e5e7eb",
         borderRadius: "8px",
-        padding: "1.5rem"
+        padding: "1.5rem",
+        marginBottom: "1.5rem"
       }}>
         <h2 style={{ fontSize: "1.25rem", fontWeight: 600, marginBottom: "1rem" }}>
-          Current OpenRouter Configuration
+          OpenRouter LLM Configuration
         </h2>
-        <div style={{ fontSize: "0.9rem", lineHeight: "1.8", color: "#374151" }}>
-          <p><strong>Provider:</strong> OpenRouter (Cloud LLM)</p>
-          <p><strong>OCR Model:</strong> qwen/qwen2.5-vl-32b-instruct:free</p>
-          <p><strong>Parse Model:</strong> meta-llama/llama-3.3-70b-instruct:free (70B!)</p>
-          <p><strong>Hybrid OCR:</strong> Enabled (Vision LLM + Tesseract)</p>
-          <p><strong>Context Parsing:</strong> Enabled (LLM fallback for ambiguous text)</p>
-          <p><strong>Confidence Threshold:</strong> 0.3 (aggressive LLM usage)</p>
-        </div>
-        <p style={{ fontSize: "0.85rem", color: "#6b7280", marginTop: "1rem" }}>
-          These settings are configured in your <code style={{ backgroundColor: "#e5e7eb", padding: "0.1rem 0.4rem", borderRadius: "3px" }}>.env</code> file.
+
+        <p style={{ fontSize: "0.9rem", color: "#6b7280", marginBottom: "1.5rem" }}>
+          Configure which models to use for OCR and parsing, and control LLM behavior.
         </p>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+          {/* OCR Model Selection */}
+          <div>
+            <label style={{ display: "block", fontSize: "0.95rem", fontWeight: 500, marginBottom: "0.5rem" }}>
+              OCR Model (Vision)
+            </label>
+            <select
+              value={openRouterSettings.ocr_model}
+              onChange={(e) => setOpenRouterSettings({ ...openRouterSettings, ocr_model: e.target.value })}
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                fontSize: "0.95rem",
+                border: "1px solid #d1d5db",
+                borderRadius: "6px",
+                backgroundColor: "white"
+              }}
+            >
+              {models.filter(m => m.is_vision).length === 0 && (
+                <option value="">Loading models...</option>
+              )}
+              {models.filter(m => m.is_vision).map(model => (
+                <option key={model.id} value={model.id}>
+                  {model.name} ({model.id})
+                </option>
+              ))}
+            </select>
+            <p style={{ fontSize: "0.85rem", color: "#6b7280", marginTop: "0.25rem" }}>
+              Vision model used for OCR correction and image analysis
+            </p>
+          </div>
+
+          {/* Parse Model Selection */}
+          <div>
+            <label style={{ display: "block", fontSize: "0.95rem", fontWeight: 500, marginBottom: "0.5rem" }}>
+              Parse Model (Text)
+            </label>
+            <select
+              value={openRouterSettings.parse_model}
+              onChange={(e) => setOpenRouterSettings({ ...openRouterSettings, parse_model: e.target.value })}
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                fontSize: "0.95rem",
+                border: "1px solid #d1d5db",
+                borderRadius: "6px",
+                backgroundColor: "white"
+              }}
+            >
+              {models.filter(m => !m.is_vision).length === 0 && (
+                <option value="">Loading models...</option>
+              )}
+              {models.filter(m => !m.is_vision).map(model => (
+                <option key={model.id} value={model.id}>
+                  {model.name} ({model.id})
+                </option>
+              ))}
+            </select>
+            <p style={{ fontSize: "0.85rem", color: "#6b7280", marginTop: "0.25rem" }}>
+              Text model used for parsing genealogy data
+            </p>
+          </div>
+
+          {/* Hybrid OCR Toggle */}
+          <div>
+            <label style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              cursor: "pointer",
+              fontSize: "0.95rem"
+            }}>
+              <input
+                type="checkbox"
+                checked={openRouterSettings.use_hybrid_ocr}
+                onChange={(e) => setOpenRouterSettings({ ...openRouterSettings, use_hybrid_ocr: e.target.checked })}
+                style={{ width: "18px", height: "18px", cursor: "pointer" }}
+              />
+              <span style={{ fontWeight: 500 }}>Enable Hybrid OCR</span>
+            </label>
+            <p style={{ fontSize: "0.85rem", color: "#6b7280", marginTop: "0.25rem", marginLeft: "1.75rem" }}>
+              Use both Tesseract and Vision LLM for OCR, comparing results line-by-line
+            </p>
+          </div>
+
+          {/* Context Parse Toggle */}
+          <div>
+            <label style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              cursor: "pointer",
+              fontSize: "0.95rem"
+            }}>
+              <input
+                type="checkbox"
+                checked={openRouterSettings.use_context_parse}
+                onChange={(e) => setOpenRouterSettings({ ...openRouterSettings, use_context_parse: e.target.checked })}
+                style={{ width: "18px", height: "18px", cursor: "pointer" }}
+              />
+              <span style={{ fontWeight: 500 }}>Enable Context Parsing</span>
+            </label>
+            <p style={{ fontSize: "0.85rem", color: "#6b7280", marginTop: "0.25rem", marginLeft: "1.75rem" }}>
+              Use LLM fallback when regex patterns fail to parse genealogy text
+            </p>
+          </div>
+
+          {/* Confidence Threshold */}
+          <div>
+            <label style={{ display: "block", fontSize: "0.95rem", fontWeight: 500, marginBottom: "0.5rem" }}>
+              OCR Confidence Threshold: {openRouterSettings.confidence_threshold.toFixed(2)}
+            </label>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value={openRouterSettings.confidence_threshold}
+              onChange={(e) => setOpenRouterSettings({ ...openRouterSettings, confidence_threshold: parseFloat(e.target.value) })}
+              style={{ width: "100%" }}
+            />
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", color: "#6b7280", marginTop: "0.25rem" }}>
+              <span>0.0 (always use LLM)</span>
+              <span>1.0 (never use LLM)</span>
+            </div>
+            <p style={{ fontSize: "0.85rem", color: "#6b7280", marginTop: "0.5rem" }}>
+              Lower values = more aggressive LLM usage. Recommended: 0.3 for free tier, 0.7 for balanced
+            </p>
+          </div>
+        </div>
+
+        {/* Save Button */}
+        <div style={{ marginTop: "1.5rem", display: "flex", gap: "1rem", alignItems: "center" }}>
+          <button
+            className="btn"
+            onClick={handleSaveOpenRouter}
+            disabled={savingOpenRouter}
+            style={{ minWidth: "120px" }}
+          >
+            {savingOpenRouter ? "Saving..." : "Save OpenRouter Settings"}
+          </button>
+
+          {openRouterMessage && (
+            <div style={{
+              padding: "0.5rem 1rem",
+              borderRadius: "6px",
+              fontSize: "0.9rem",
+              backgroundColor: openRouterMessage.type === "success" ? "#dcfce7" : "#fee2e2",
+              color: openRouterMessage.type === "success" ? "#166534" : "#991b1b",
+              border: `1px solid ${openRouterMessage.type === "success" ? "#bbf7d0" : "#fecaca"}`
+            }}>
+              {openRouterMessage.text}
+            </div>
+          )}
+        </div>
+
+        {/* Info */}
+        <div style={{
+          marginTop: "1.5rem",
+          padding: "1rem",
+          backgroundColor: "#eff6ff",
+          border: "1px solid #bfdbfe",
+          borderRadius: "6px"
+        }}>
+          <p style={{ fontSize: "0.85rem", color: "#1e3a8a", margin: 0 }}>
+            <strong>Note:</strong> Settings are saved to your .env file but require a server restart to fully apply.
+            Changes take effect immediately for new requests but existing processes use cached settings.
+          </p>
+        </div>
       </section>
     </div>
   );

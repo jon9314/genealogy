@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, Any, Optional
+import os
+from typing import Dict, Any, Optional, List
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select, delete
+import httpx
 
 from ..core.models import Person, Family, Child, PageText, Source
+from ..core.settings import get_settings
 from ..db import get_session
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -31,8 +35,25 @@ class DeleteDataRequest(BaseModel):
     delete_ocr: bool = Field(default=False, description="Also delete OCR text")
 
 
-# In-memory rate limit settings (could be moved to database or cache)
+class OpenRouterSettings(BaseModel):
+    """OpenRouter configuration settings."""
+    ocr_model: str = Field(description="Vision model for OCR")
+    parse_model: str = Field(description="Text model for parsing")
+    use_hybrid_ocr: bool = Field(description="Enable hybrid OCR (Tesseract + LLM)")
+    use_context_parse: bool = Field(description="Enable LLM parsing fallback")
+    confidence_threshold: float = Field(ge=0.0, le=1.0, description="Confidence threshold for LLM usage")
+
+
+class ModelInfo(BaseModel):
+    """Model information from OpenRouter."""
+    id: str
+    name: str
+    is_vision: bool
+
+
+# In-memory settings (could be moved to database or cache)
 _rate_limit_settings: Optional[RateLimitSettings] = None
+_openrouter_settings: Optional[OpenRouterSettings] = None
 
 
 @router.delete("/data")
@@ -154,4 +175,134 @@ def get_data_stats(session: Session = Depends(get_session)) -> JSONResponse:
         "children": children_count,
         "sources": sources_count,
         "ocr_pages": ocr_pages_count,
+    })
+
+
+@router.get("/openrouter/models")
+async def get_openrouter_models() -> List[ModelInfo]:
+    """
+    Get available OpenRouter models.
+
+    Filters to show only free models and categorizes them by vision capability.
+    """
+    settings = get_settings()
+
+    if not settings.openrouter_api_key:
+        raise HTTPException(status_code=400, detail="OpenRouter API key not configured")
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                "https://openrouter.ai/api/v1/models",
+                headers={
+                    "Authorization": f"Bearer {settings.openrouter_api_key}"
+                }
+            )
+            response.raise_for_status()
+            data = response.json()
+
+        models = []
+        for model in data.get("data", []):
+            model_id = model.get("id", "")
+
+            # Only include free models
+            pricing = model.get("pricing", {})
+            prompt_price = float(pricing.get("prompt", "999"))
+            completion_price = float(pricing.get("completion", "999"))
+
+            if prompt_price == 0 and completion_price == 0:
+                # Check if it's a vision model
+                architecture = model.get("architecture", {})
+                modality = architecture.get("modality", "text")
+                is_vision = modality == "multimodal" or "vision" in model_id.lower() or "vl" in model_id.lower()
+
+                models.append(ModelInfo(
+                    id=model_id,
+                    name=model.get("name", model_id),
+                    is_vision=is_vision
+                ))
+
+        LOGGER.info(f"Found {len(models)} free OpenRouter models")
+        return models
+
+    except httpx.HTTPError as e:
+        LOGGER.error(f"Failed to fetch OpenRouter models: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch models: {str(e)}")
+
+
+@router.get("/openrouter/settings")
+def get_openrouter_settings() -> OpenRouterSettings:
+    """Get current OpenRouter configuration."""
+    global _openrouter_settings
+    settings = get_settings()
+
+    if _openrouter_settings is None:
+        # Initialize from environment settings
+        _openrouter_settings = OpenRouterSettings(
+            ocr_model=settings.openrouter_ocr_model,
+            parse_model=settings.openrouter_parse_model,
+            use_hybrid_ocr=settings.openrouter_use_hybrid_ocr,
+            use_context_parse=settings.openrouter_use_context_parse,
+            confidence_threshold=settings.ollama_confidence_threshold,  # Shared threshold
+        )
+
+    return _openrouter_settings
+
+
+@router.post("/openrouter/settings")
+def update_openrouter_settings(new_settings: OpenRouterSettings) -> JSONResponse:
+    """
+    Update OpenRouter configuration settings.
+
+    Note: These settings are stored in memory and will reset on server restart.
+    To persist changes, update your .env file.
+    """
+    global _openrouter_settings
+
+    _openrouter_settings = new_settings
+
+    # Also update the .env file for persistence
+    env_file = Path(".env")
+    if env_file.exists():
+        try:
+            lines = env_file.read_text().splitlines()
+            updated_lines = []
+
+            settings_map = {
+                "GENEALOGY_OPENROUTER_OCR_MODEL": new_settings.ocr_model,
+                "GENEALOGY_OPENROUTER_PARSE_MODEL": new_settings.parse_model,
+                "GENEALOGY_OPENROUTER_USE_HYBRID_OCR": str(new_settings.use_hybrid_ocr).lower(),
+                "GENEALOGY_OPENROUTER_USE_CONTEXT_PARSE": str(new_settings.use_context_parse).lower(),
+                "GENEALOGY_OLLAMA_CONFIDENCE_THRESHOLD": str(new_settings.confidence_threshold),
+            }
+
+            updated_keys = set()
+            for line in lines:
+                updated = False
+                for key, value in settings_map.items():
+                    if line.startswith(f"{key}="):
+                        updated_lines.append(f"{key}={value}")
+                        updated_keys.add(key)
+                        updated = True
+                        break
+                if not updated:
+                    updated_lines.append(line)
+
+            # Add any missing settings
+            for key, value in settings_map.items():
+                if key not in updated_keys:
+                    updated_lines.append(f"{key}={value}")
+
+            env_file.write_text("\n".join(updated_lines) + "\n")
+            LOGGER.info(f"Updated .env file with new OpenRouter settings")
+
+        except Exception as e:
+            LOGGER.warning(f"Failed to update .env file: {e}")
+
+    LOGGER.info(f"OpenRouter settings updated: {new_settings}")
+
+    return JSONResponse({
+        "status": "success",
+        "message": "OpenRouter settings updated (restart server to fully apply changes)",
+        "settings": new_settings.model_dump()
     })

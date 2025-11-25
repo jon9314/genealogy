@@ -275,4 +275,34 @@ export async function updateRateLimitSettings(settings: RateLimitSettings): Prom
   return data;
 }
 
+// OpenRouter Settings
+export interface OpenRouterSettings {
+  ocr_model: string;
+  parse_model: string;
+  use_hybrid_ocr: boolean;
+  use_context_parse: boolean;
+  confidence_threshold: number;
+}
+
+export interface ModelInfo {
+  id: string;
+  name: string;
+  is_vision: boolean;
+}
+
+export async function getOpenRouterModels(): Promise<ModelInfo[]> {
+  const { data } = await client.get<ModelInfo[]>("/admin/openrouter/models");
+  return data;
+}
+
+export async function getOpenRouterSettings(): Promise<OpenRouterSettings> {
+  const { data } = await client.get<OpenRouterSettings>("/admin/openrouter/settings");
+  return data;
+}
+
+export async function updateOpenRouterSettings(settings: OpenRouterSettings): Promise<{ status: string; message: string }> {
+  const { data } = await client.post("/admin/openrouter/settings", settings);
+  return data;
+}
+
 export default client;
