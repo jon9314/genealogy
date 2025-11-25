@@ -19,6 +19,7 @@ import TablePage from "./routes/Table";
 import Upload from "./routes/Upload";
 import WarningsPage from "./routes/Warnings";
 import ImportPage from "./routes/Import";
+import SettingsPage from "./routes/Settings";
 
 const AUTOSAVE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -78,6 +79,7 @@ export default function App() {
             <Route path="/backups" element={<BackupsPage />} />
             <Route path="/export" element={<ExportPage />} />
             <Route path="/import" element={<ImportPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>

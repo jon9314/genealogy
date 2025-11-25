@@ -230,4 +230,49 @@ export async function clearNotification(notificationId: string): Promise<void> {
   await client.delete(`/ocr/notifications/${notificationId}`);
 }
 
+// Admin API
+export interface RateLimitSettings {
+  enabled: boolean;
+  max_requests_per_minute: number;
+  openrouter_only: boolean;
+}
+
+export interface DataStats {
+  persons: number;
+  families: number;
+  children: number;
+  sources: number;
+  ocr_pages: number;
+}
+
+export async function deleteAllData(options: {
+  confirm: boolean;
+  delete_sources?: boolean;
+  delete_ocr?: boolean
+}): Promise<{ status: string; message: string; stats: any }> {
+  const { data } = await client.delete("/admin/data", {
+    data: {
+      confirm: options.confirm,
+      delete_sources: options.delete_sources || false,
+      delete_ocr: options.delete_ocr || false
+    }
+  });
+  return data;
+}
+
+export async function getDataStats(): Promise<DataStats> {
+  const { data } = await client.get<DataStats>("/admin/stats");
+  return data;
+}
+
+export async function getRateLimitSettings(): Promise<RateLimitSettings> {
+  const { data} = await client.get<RateLimitSettings>("/admin/rate-limit");
+  return data;
+}
+
+export async function updateRateLimitSettings(settings: RateLimitSettings): Promise<{ status: string; message: string }> {
+  const { data } = await client.post("/admin/rate-limit", settings);
+  return data;
+}
+
 export default client;
